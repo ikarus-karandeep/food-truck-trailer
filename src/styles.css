@@ -1,0 +1,363 @@
+:root {
+  font-family: "Segoe UI", "Inter", sans-serif;
+  color: #1f2937;
+  background:
+    radial-gradient(circle at top left, rgba(255, 215, 141, 0.4), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(120, 212, 194, 0.28), transparent 30%),
+    #efe9dd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+#root {
+  height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.control-panel {
+  padding: 1.4rem;
+  background: rgba(251, 247, 240, 0.92);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(122, 109, 92, 0.16);
+  overflow-y: auto;
+}
+
+.panel-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(255, 252, 246, 0.88);
+  box-shadow: 0 14px 38px rgba(89, 70, 43, 0.08);
+}
+
+.hero {
+  background: linear-gradient(160deg, #1d3557, #264653);
+  color: #f8fafc;
+}
+
+.hero h1,
+.scene-header h2 {
+  margin: 0.2rem 0 0.6rem;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
+
+.hero-copy,
+.scene-header p,
+.empty-state,
+.equipment-card p,
+.zone-card p,
+.placed-card p,
+.helper-copy {
+  margin: 0;
+  color: rgba(31, 41, 55, 0.72);
+}
+
+.hero .hero-copy {
+  color: rgba(248, 250, 252, 0.78);
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.section-heading span {
+  font-size: 0.78rem;
+  color: rgba(31, 41, 55, 0.56);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.input-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.input-grid input,
+.editor-grid select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid rgba(38, 70, 83, 0.16);
+  background: #fffdfa;
+}
+
+.equipment-list,
+.zone-list,
+.placed-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.equipment-card,
+.zone-card,
+.placed-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: #fffdfa;
+  text-align: left;
+}
+
+.equipment-card,
+.zone-card {
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.equipment-card:hover,
+.zone-card:hover,
+.equipment-card.active,
+.zone-card.can-accept {
+  transform: translateY(-1px);
+  border-color: rgba(38, 70, 83, 0.18);
+  box-shadow: 0 12px 26px rgba(38, 70, 83, 0.1);
+}
+
+.equipment-card strong,
+.zone-card strong,
+.placed-card strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.equipment-dot,
+.zone-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.placed-card {
+  justify-content: space-between;
+}
+
+.placed-card.active {
+  border-color: rgba(29, 53, 87, 0.24);
+  box-shadow: 0 12px 26px rgba(29, 53, 87, 0.1);
+}
+
+.placed-card button,
+.move-actions button {
+  border: 0;
+  border-radius: 999px;
+  background: #1d3557;
+  color: #f8fafc;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+}
+
+.placed-actions,
+.move-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  background: #a13030 !important;
+}
+
+.zone-card.is-selected {
+  border-color: rgba(29, 53, 87, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(29, 53, 87, 0.16);
+}
+
+.helper-copy {
+  margin-top: 0.8rem;
+  font-size: 0.82rem;
+}
+
+.editor-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.editor-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.scene-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.scene-loading {
+  display: grid;
+  place-items: center;
+  min-height: 50vh;
+  color: rgba(31, 41, 55, 0.68);
+  font-size: 0.95rem;
+}
+
+.scene-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  padding: 1.2rem 1.4rem 0.4rem;
+}
+
+.scene-header p {
+  max-width: 30rem;
+}
+
+.viewport-controls {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+}
+
+.viewport-actions {
+  display: flex;
+  gap: 0.22rem;
+  padding: 0.22rem;
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.94);
+  box-shadow: 0 12px 28px rgba(29, 53, 87, 0.14);
+  border: 1px solid rgba(29, 53, 87, 0.08);
+}
+
+.viewport-icon-button {
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f2937;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(31, 41, 55, 0.12);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.viewport-delete-button {
+  color: #a13030;
+}
+
+.viewport-icon-button:disabled,
+.move-actions button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.viewport-editor {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 8.5rem;
+  padding: 0.45rem;
+  border-radius: 12px;
+  background: rgba(255, 252, 246, 0.96);
+  box-shadow: 0 14px 30px rgba(29, 53, 87, 0.16);
+}
+
+.viewport-editor label {
+  display: grid;
+  gap: 0.18rem;
+  font-size: 0.52rem;
+  color: rgba(31, 41, 55, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.viewport-editor select {
+  min-width: 0;
+  padding: 0.34rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(38, 70, 83, 0.16);
+  background: #fffdfa;
+  font-size: 0.66rem;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
+    border-right: 0;
+    border-bottom: 1px solid rgba(122, 109, 92, 0.16);
+  }
+
+  .scene-shell {
+    height: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .control-panel,
+  .scene-header {
+    padding: 1rem;
+  }
+
+  .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-header {
+    display: grid;
+    align-items: start;
+  }
+}
