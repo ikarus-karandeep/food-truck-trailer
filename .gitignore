@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-jspm_packages/
 
 # Debug and Logs
 logs
@@ -32,3 +31,6 @@ out/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+#3D Assets
+#models/

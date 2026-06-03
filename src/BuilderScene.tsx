@@ -1,10 +1,8 @@
 import {
   Clone,
-  Edges,
   Environment,
   Html,
   OrbitControls,
-  Text,
   useGLTF
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
@@ -16,21 +14,18 @@ import type {
   ModelMetric,
   PlacementView,
   ViewportZoneOption,
-  Zone,
   ZoneId
 } from "./App";
 
 type BuilderSceneProps = {
+  activeStageModelSrc: string | null;
   dimensions: Dimensions;
-  zones: Zone[];
   placements: PlacementView[];
-  selectedEquipment: EquipmentDefinition | null;
   selectedPlaced: PlacementView | null;
   selectedPlacedId: string | null;
   isEditingSelected: boolean;
   editableEquipmentOptions: EquipmentDefinition[];
   viewportZoneOptions: ViewportZoneOption[];
-  onZoneSelect: (equipmentId: string, zoneId: ZoneId) => void;
   onPlacedSelect: (placedId: string | null) => void;
   onMoveEarlier: (placedId: string) => void;
   onMoveLater: (placedId: string) => void;
@@ -40,6 +35,50 @@ type BuilderSceneProps = {
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
   onViewportZoneChange: (placedId: string, zoneId: ZoneId) => void;
 };
+
+function StageModel({
+  activeStageModelSrc
+}: {
+  activeStageModelSrc: string | null;
+}) {
+  if (!activeStageModelSrc) {
+    return null;
+  }
+
+  return <LoadedStageModel src={activeStageModelSrc} />;
+}
+
+function LoadedStageModel({ src }: { src: string }) {
+  const gltf = useGLTF(src);
+  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  const metrics = useMemo(() => {
+    const bounds = new Box3().setFromObject(scene);
+    const center = bounds.getCenter(new Vector3());
+    const size = bounds.getSize(new Vector3());
+    const longestSide = Math.max(size.x, size.y, size.z, 1);
+    const scale = 4.6 / longestSide;
+
+    return {
+      scale,
+      offset: {
+        x: -center.x * scale,
+        y: -bounds.min.y * scale,
+        z: -center.z * scale
+      }
+    };
+  }, [scene]);
+
+  return (
+    <group position={[0, 0.08, 0]}>
+      <group
+        scale={metrics.scale}
+        position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
+      >
+        <Clone object={scene} />
+      </group>
+    </group>
+  );
+}
 
 function EquipmentVisual({
   definition,
@@ -51,25 +90,14 @@ function EquipmentVisual({
   const model = definition.model3d;
 
   if (!model) {
-    return (
-      <group position={[0, definition.size.height / 2, 0]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry
-            args={[definition.size.width, definition.size.height, definition.size.length]}
-          />
-          <meshStandardMaterial color={definition.color} />
-          {isSelected ? <Edges color="#0f172a" /> : null}
-        </mesh>
-      </group>
-    );
+    return null;
   }
 
   return <ModeledEquipmentVisual definition={definition} isSelected={isSelected} />;
 }
 
 function ModeledEquipmentVisual({
-  definition,
-  isSelected
+  definition
 }: {
   definition: EquipmentDefinition;
   isSelected: boolean;
@@ -107,22 +135,6 @@ function ModeledEquipmentVisual({
       >
         <Clone object={scene} />
       </group>
-      {isSelected ? (
-        <mesh
-          castShadow
-          receiveShadow
-          position={[0, metrics.size.y / 2 + (model.yOffset ?? 0), 0]}
-        >
-          <boxGeometry
-            args={[
-              metrics.size.x + 0.04,
-              metrics.size.y + 0.04,
-              metrics.size.z + 0.04
-            ]}
-          />
-          <meshStandardMaterial color="#0f172a" wireframe transparent opacity={0.8} />
-        </mesh>
-      ) : null}
     </group>
   );
 }
@@ -168,14 +180,14 @@ function ViewportControls({
             disabled={!!item.parentId}
             title="Move earlier"
           >
-            ←
+            {"<"}
           </button>
           <button
             className="viewport-icon-button"
             onClick={() => onToggleViewportEdit(item.id)}
             title="Edit"
           >
-            ✎
+            ED
           </button>
           <button
             className="viewport-icon-button"
@@ -183,14 +195,14 @@ function ViewportControls({
             disabled={!!item.parentId}
             title="Move later"
           >
-            →
+            {">"}
           </button>
           <button
             className="viewport-icon-button viewport-delete-button"
             onClick={() => onDeletePlaced(item.id)}
             title="Delete"
           >
-            🗑
+            X
           </button>
         </div>
         {isEditingSelected ? (
@@ -265,16 +277,13 @@ function ModelMetricProbe({
 }
 
 function BuilderScene({
-  dimensions,
-  zones,
+  activeStageModelSrc,
   placements,
-  selectedEquipment,
   selectedPlaced,
   selectedPlacedId,
   isEditingSelected,
   editableEquipmentOptions,
   viewportZoneOptions,
-  onZoneSelect,
   onPlacedSelect,
   onMoveEarlier,
   onMoveLater,
@@ -298,17 +307,17 @@ function BuilderScene({
 
   return (
     <Canvas
-      camera={{ position: [6.5, 5.5, 6.5], fov: 42 }}
+      camera={{ position: [7.8, 4.9, 7.1], fov: 34 }}
       dpr={[1, 1.5]}
       shadows
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
-      <color attach="background" args={["#f3efe7"]} />
-      <Environment preset="warehouse" environmentIntensity={0.9} />
-      <hemisphereLight intensity={0.45} color="#fff8ee" groundColor="#b9b3a7" />
+      <color attach="background" args={["#f3f3f2"]} />
+      <Environment preset="studio" environmentIntensity={0.72} />
+      <hemisphereLight intensity={0.52} color="#ffffff" groundColor="#cfcfc8" />
       <directionalLight
-        position={[5, 8, 3]}
-        intensity={1.5}
+        position={[8, 11, 6]}
+        intensity={1.65}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -321,98 +330,7 @@ function BuilderScene({
         />
       ))}
       <group onPointerMissed={() => onPlacedSelect(null)}>
-        <gridHelper args={[16, 16, "#d0cabf", "#e7e1d6"]} position={[0, -0.01, 0]} />
-
-        <mesh receiveShadow position={[0, -0.03, 0]}>
-          <boxGeometry args={[dimensions.width + 0.4, 0.06, dimensions.length + 0.4]} />
-          <meshStandardMaterial color="#d8d2c4" />
-        </mesh>
-
-        <mesh receiveShadow>
-          <boxGeometry args={[dimensions.width, 0.08, dimensions.length]} />
-          <meshStandardMaterial color="#fbf7f0" />
-        </mesh>
-
-        <mesh position={[0, dimensions.height / 2, -dimensions.length / 2]}>
-          <boxGeometry args={[dimensions.width, dimensions.height, 0.04]} />
-          <meshStandardMaterial
-            color="#fef8ee"
-            metalness={0.05}
-            roughness={0.92}
-            transparent
-            opacity={0.32}
-          />
-        </mesh>
-        <mesh position={[0, dimensions.height / 2, dimensions.length / 2]}>
-          <boxGeometry args={[dimensions.width, dimensions.height, 0.04]} />
-          <meshStandardMaterial
-            color="#fef8ee"
-            metalness={0.05}
-            roughness={0.92}
-            transparent
-            opacity={0.32}
-          />
-        </mesh>
-        <mesh position={[-dimensions.width / 2, dimensions.height / 2, 0]}>
-          <boxGeometry args={[0.04, dimensions.height, dimensions.length]} />
-          <meshStandardMaterial
-            color="#fef8ee"
-            metalness={0.05}
-            roughness={0.92}
-            transparent
-            opacity={0.32}
-          />
-        </mesh>
-        <mesh position={[dimensions.width / 2, dimensions.height / 2, 0]}>
-          <boxGeometry args={[0.04, dimensions.height, dimensions.length]} />
-          <meshStandardMaterial
-            color="#fef8ee"
-            metalness={0.05}
-            roughness={0.92}
-            transparent
-            opacity={0.32}
-          />
-        </mesh>
-
-        {zones.map((zone) => {
-          const canAccept = selectedEquipment?.allowedZones.includes(zone.id) ?? false;
-
-          return (
-            <group key={zone.id}>
-              <mesh
-                position={[zone.x, 0.045, zone.z]}
-                rotation={[-Math.PI / 2, 0, 0]}
-                onClick={() => {
-                  onPlacedSelect(null);
-                  if (selectedEquipment) {
-                    onZoneSelect(selectedEquipment.id, zone.id);
-                  }
-                }}
-              >
-                <planeGeometry args={[zone.width, zone.length]} />
-                <meshStandardMaterial
-                  color={zone.color}
-                  transparent
-                  opacity={canAccept ? 0.55 : 0.28}
-                />
-              </mesh>
-              <mesh position={[zone.x, 0.05, zone.z]}>
-                <boxGeometry args={[zone.width, 0.02, zone.length]} />
-                <meshStandardMaterial color={zone.color} transparent opacity={0.08} />
-                <Edges color={canAccept ? "#0f172a" : "#7a6d5c"} />
-              </mesh>
-              <Text
-                position={[zone.x, 0.08, zone.z]}
-                rotation={[-Math.PI / 2, 0, 0]}
-                fontSize={0.18}
-                color="#1f2937"
-                maxWidth={Math.max(zone.width, zone.length) - 0.2}
-              >
-                {zone.name}
-              </Text>
-            </group>
-          );
-        })}
+        <StageModel activeStageModelSrc={activeStageModelSrc} />
 
         {placements.map(({ item, definition, placement }) => {
           const isSelected = selectedPlacedId === item.id;
@@ -426,18 +344,8 @@ function BuilderScene({
                 event.stopPropagation();
                 onPlacedSelect(item.id);
               }}
-            >
-              <EquipmentVisual definition={definition} isSelected={isSelected} />
-              <Text
-                position={[0, definition.size.height + 0.16, 0]}
-                fontSize={0.11}
-                color="#1f2937"
-                anchorX="center"
-                anchorY="middle"
-                maxWidth={definition.size.length}
               >
-                {definition.name}
-              </Text>
+                <EquipmentVisual definition={definition} isSelected={isSelected} />
               {isSelected && selectedPlaced?.item.id === item.id ? (
                 <ViewportControls
                   selectedPlaced={selectedPlaced}
@@ -456,7 +364,7 @@ function BuilderScene({
           );
         })}
       </group>
-      <OrbitControls enablePan enableZoom />
+      <OrbitControls enablePan enableZoom minDistance={4.5} maxDistance={12} />
     </Canvas>
   );
 }

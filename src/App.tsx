@@ -1,4 +1,5 @@
-import { Suspense, lazy, useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState, type CSSProperties } from "react";
+import modelCatalogData from "../models/models.json";
 import { Box3, Vector3 } from "three";
 
 type Dimensions = {
@@ -10,6 +11,9 @@ type Dimensions = {
 type EquipmentDefinition = {
   id: string;
   name: string;
+  menuType: string;
+  side: string;
+  level: number;
   size: {
     length: number;
     width: number;
@@ -73,6 +77,37 @@ type ViewportZoneOption = {
   disabled: boolean;
 };
 
+type ModelCatalogEntry = {
+  "glb name": string;
+  "menu type": string;
+  level: number;
+  side: string;
+};
+
+type EquipmentMenuGroup = {
+  id: string;
+  label: string;
+  side: string;
+  items: EquipmentDefinition[];
+};
+
+type ConfiguratorStepId =
+  | "size"
+  | "equipment-side"
+  | "serving-side"
+  | "addons-utility"
+  | "trailer-customization";
+
+type TrailerSize = {
+  id: "size-16" | "size-30";
+  label: string;
+  description: string;
+  accent: string;
+  accentSoft: string;
+  dimensions: Dimensions;
+  stageModels: Partial<Record<ConfiguratorStepId, string>>;
+};
+
 const FLOOR_Y = 0.08;
 const COLLISION_PADDING = 0;
 
@@ -81,142 +116,125 @@ const REFRIGERATION_ZONE_LENGTH = 16 * FEET_TO_METERS;
 const REFRIGERATION_ZONE_WIDTH = 4.6 * FEET_TO_METERS;
 const REFRIGERATION_ZONE_HEIGHT = 12 * FEET_TO_METERS;
 
-const equipmentCatalog: EquipmentDefinition[] = [
-  {
-    id: "service-counter",
-    name: "Service Counter",
-    size: { length: 1.4, width: 0.6, height: 1.1 },
-    allowedZones: ["customer-window"],
-    color: "#ffcb74"
-  },
-  {
-    id: "grill",
-    name: "Flat Grill",
-    size: { length: 1.0, width: 0.75, height: 0.95 },
-    allowedZones: ["cooking"],
-    color: "#ff7a59"
-  },
-  {
-    id: "fryer",
-    name: "Deep Fryer",
-    size: { length: 0.7, width: 0.75, height: 0.95 },
-    allowedZones: ["cooking"],
-    color: "#ff9966"
-  },
-  {
-    id: "prep-table",
-    name: "Prep Table",
-    size: { length: 1.2, width: 0.7, height: 0.9 },
-    allowedZones: ["prep"],
-    color: "#78d4c2"
-  },
-  {
-    id: "sink",
-    name: "3-Bay Sink",
-    size: { length: 1.4, width: 0.7, height: 0.95 },
-    allowedZones: ["washing"],
-    color: "#8ecae6"
-  },
-  {
-    id: "handwash",
-    name: "Hand Wash Sink",
-    size: { length: 0.55, width: 0.55, height: 0.9 },
-    allowedZones: ["washing", "entry"],
-    color: "#9dd9f3"
-  },
-  {
-    id: "fridge",
-    name: "Reach-In Fridge",
-    size: { length: 0.9, width: 0.85, height: 1.9 },
-    allowedZones: ["refrigeration"],
-    color: "#96b8ff",
-    model3d: {
-      src: new URL("../models/refrigeration/TallRefrigerator.glb", import.meta.url).href,
-      scale: 0.9,
-      yOffset: 0
-    }
-  },
-  {
-    id: "freezer",
-    name: "Undercounter Freezer",
-    size: { length: 1.0, width: 0.75, height: 0.95 },
-    allowedZones: ["refrigeration", "prep"],
-    color: "#6f8cff",
-    model3d: {
-      src: new URL(
-        "../models/refrigeration/UndercounterRefrigerator.glb",
-        import.meta.url
-      ).href,
-      scale: 0.82,
-      yOffset: 0
-    }
-  },
-  {
-    id: "sandwich-prep-fridge",
-    name: "Sandwich Prep Fridge",
-    size: { length: 1.2, width: 0.78, height: 1.25 },
-    allowedZones: ["refrigeration", "prep"],
-    color: "#86bdf7",
-    model3d: {
-      src: new URL(
-        "../models/refrigeration/SandwichPrepRefrigerator.glb",
-        import.meta.url
-      ).href,
-      scale: 0.8,
-      yOffset: 0
-    }
-  },
-  {
-    id: "chest-freezer",
-    name: "Chest Freezer",
-    size: { length: 1.2, width: 0.8, height: 0.95 },
-    allowedZones: ["refrigeration"],
-    color: "#75aef7",
-    model3d: {
-      src: new URL("../models/refrigeration/ChestFreezer.glb", import.meta.url).href,
-      scale: 0.82,
-      yOffset: 0
-    }
-  },
-  {
-    id: "ice-maker",
-    name: "Ice Maker",
-    size: { length: 0.7, width: 0.75, height: 1.0 },
-    allowedZones: ["refrigeration", "prep"],
-    color: "#a3cfff",
-    model3d: {
-      src: new URL("../models/refrigeration/Icemaker.glb", import.meta.url).href,
-      scale: 0.82,
-      yOffset: 0
-    }
-  },
-  {
-    id: "soft-serve-freezer",
-    name: "Soft Serve Freezer",
-    size: { length: 0.9, width: 0.85, height: 1.55 },
-    allowedZones: ["refrigeration"],
-    color: "#5d8fed",
-    model3d: {
-      src: new URL("../models/refrigeration/SoftServeFreezer.glb", import.meta.url).href,
-      scale: 0.82,
-      yOffset: 0
-    }
-  },
-  {
-    id: "shelf",
-    name: "Dry Storage Shelf",
-    size: { length: 1.0, width: 0.45, height: 1.8 },
-    allowedZones: ["prep", "entry"],
-    color: "#c9a46d"
-  },
-  {
-    id: "door-clearance",
-    name: "Entry Clearance",
-    size: { length: 0.9, width: 0.8, height: 0.1 },
-    allowedZones: ["entry"],
-    color: "#f4f1de"
-  }
+const CONFIGURABLE_ZONE_IDS: ZoneId[] = [
+  "customer-window",
+  "cooking",
+  "prep",
+  "washing",
+  "refrigeration",
+  "entry"
 ];
+
+const menuAccentPalette = [
+  "#ffcb74",
+  "#ff9966",
+  "#78d4c2",
+  "#8ecae6",
+  "#96b8ff",
+  "#c9a46d",
+  "#f59e0b",
+  "#f472b6",
+  "#34d399",
+  "#a78bfa"
+];
+
+const glbFileModules = import.meta.glob("../models/glb-files/*.glb", {
+  eager: true,
+  import: "default"
+}) as Record<string, string>;
+
+const glbAssetMap = Object.fromEntries(
+  Object.entries(glbFileModules).map(([path, src]) => [path.split("/").pop() ?? path, src])
+) as Record<string, string>;
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\.glb$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function formatModelLabel(glbName: string) {
+  return glbName
+    .replace(/\.glb$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getMenuAccent(menuType: string) {
+  const menuIndex = Array.from(
+    new Set(
+      (modelCatalogData as ModelCatalogEntry[])
+        .map((entry) => entry["menu type"])
+        .filter(Boolean)
+    )
+  ).indexOf(menuType);
+
+  return menuAccentPalette[(menuIndex >= 0 ? menuIndex : 0) % menuAccentPalette.length];
+}
+
+function getDefaultEquipmentSize(level: number) {
+  if (level > 0) {
+    return { length: 0.56, width: 0.48, height: 0.62 };
+  }
+
+  return { length: 0.92, width: 0.76, height: 1.02 };
+}
+
+const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
+  .filter((entry) => entry.side === "equipment")
+  .flatMap((entry) => {
+    const src = glbAssetMap[entry["glb name"]];
+
+    if (!src) {
+      return [];
+    }
+
+    return [
+      {
+        id: slugify(entry["glb name"]),
+        name: formatModelLabel(entry["glb name"]),
+        menuType: entry["menu type"],
+        side: entry.side,
+        level: entry.level,
+        size: getDefaultEquipmentSize(entry.level),
+        allowedZones: CONFIGURABLE_ZONE_IDS,
+        color: getMenuAccent(entry["menu type"]),
+        model3d: {
+          src,
+          scale: entry.level > 0 ? 0.82 : 0.88,
+          yOffset: 0
+        }
+      }
+    ];
+  });
+
+const equipmentMenuGroups: EquipmentMenuGroup[] = Array.from(
+  equipmentCatalog.reduce((groups, equipment) => {
+    const key = `${equipment.side}:${equipment.menuType}`;
+    const current = groups.get(key);
+
+    if (current) {
+      current.items.push(equipment);
+      return groups;
+    }
+
+    groups.set(key, {
+      id: slugify(key),
+      label: equipment.menuType,
+      side: equipment.side,
+      items: [equipment]
+    });
+    return groups;
+  }, new Map<string, EquipmentMenuGroup>())
+)
+  .map(([, group]) => ({
+    ...group,
+    items: [...group.items].sort((a, b) => a.name.localeCompare(b.name))
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 const zoneOrder: ZoneId[] = [
   "customer-window",
@@ -228,18 +246,47 @@ const zoneOrder: ZoneId[] = [
   "entry"
 ];
 
+const trailerSizes: TrailerSize[] = [
+  {
+    id: "size-16",
+    label: "16ft",
+    description: "Compact trailer footprint for lean service builds and tighter parking spaces.",
+    accent: "#dfeafe",
+    accentSoft: "rgba(0, 83, 208, 0.08)",
+    dimensions: { length: 4.88, width: 2.5, height: 2.9 },
+    stageModels: {
+      size: new URL("../models/base/16-base.glb", import.meta.url).href,
+      "equipment-side": new URL("../models/base/16-equipment.glb", import.meta.url).href,
+      "serving-side": new URL("../models/base/16-serving.glb", import.meta.url).href
+    }
+  },
+  {
+    id: "size-30",
+    label: "30ft",
+    description: "Expanded trailer footprint for larger kitchen layouts and higher equipment density.",
+    accent: "#f8ddd4",
+    accentSoft: "rgba(218, 99, 75, 0.1)",
+    dimensions: { length: 9.1, width: 2.5, height: 3.0 },
+    stageModels: {
+      size: new URL("../models/base/30-hot.glb", import.meta.url).href,
+      "equipment-side": new URL("../models/base/30-hot.glb", import.meta.url).href,
+      "serving-side": new URL("../models/base/30-hot.glb", import.meta.url).href
+    }
+  }
+];
+
+const configuratorSteps = [
+  { id: "size", label: "Size" },
+  { id: "equipment-side", label: "equipment side" },
+  { id: "serving-side", label: "serving side" },
+  { id: "addons-utility", label: "Add-ons & utility" },
+  { id: "trailer-customization", label: "trailer customization" }
+] as const;
+
 const BuilderScene = lazy(() => import("./BuilderScene"));
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function isSoftServe(definitionId: string) {
-  return definitionId === "soft-serve-freezer";
-}
-
-function isUndercounter(definitionId: string) {
-  return definitionId === "freezer";
 }
 
 function getEffectiveSize(
@@ -408,22 +455,6 @@ function getFloorPlacement(zone: Zone, slot: number, item: EquipmentDefinition) 
       };
 }
 
-function findStackParent(
-  items: PlacedEquipment[],
-  definitions: Record<string, EquipmentDefinition>,
-  zoneId: ZoneId
-) {
-  return items.find((item) => {
-    if (item.zoneId !== zoneId || item.parentId) {
-      return false;
-    }
-
-    const definition = definitions[item.definitionId];
-    const alreadyHasChild = items.some((candidate) => candidate.parentId === item.id);
-    return !!definition && isUndercounter(definition.id) && !alreadyHasChild;
-  });
-}
-
 function createPlacementBox(
   definition: EquipmentDefinition,
   placement: PlacementView["placement"],
@@ -551,11 +582,10 @@ function buildRefrigerationPlacementMap(
 }
 
 function App() {
-  const [dimensions, setDimensions] = useState<Dimensions>({
-    length: 6.5,
-    width: 2.4,
-    height: 2.7
-  });
+  const [selectedStepId, setSelectedStepId] = useState<ConfiguratorStepId>("size");
+  const [selectedTrailerSizeId, setSelectedTrailerSizeId] =
+    useState<TrailerSize["id"]>("size-16");
+  const [dimensions, setDimensions] = useState<Dimensions>(trailerSizes[0].dimensions);
   const [placed, setPlaced] = useState<PlacedEquipment[]>([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
@@ -576,10 +606,11 @@ function App() {
     []
   );
 
-  const selectedEquipment = useMemo(
+  const selectedTrailerSize = useMemo(
     () =>
-      equipmentCatalog.find((equipment) => equipment.id === selectedEquipmentId) ?? null,
-    [selectedEquipmentId]
+      trailerSizes.find((trailerSize) => trailerSize.id === selectedTrailerSizeId) ??
+      trailerSizes[0],
+    [selectedTrailerSizeId]
   );
 
   const placements = useMemo<PlacementView[]>(
@@ -667,69 +698,6 @@ function App() {
       };
     });
   }, [selectedPlaced, selectedPlacedAllowedZones, zoneCounts, zoneMap]);
-
-  function updateDimension(key: keyof Dimensions, value: number) {
-    setDimensions((current) => ({
-      ...current,
-      [key]: clamp(value, key === "height" ? 2.1 : 1.8, key === "length" ? 12 : 4)
-    }));
-  }
-
-  function placeEquipment(equipmentId: string, zoneId: ZoneId) {
-    const zone = zoneMap[zoneId];
-    const equipment = equipmentMap[equipmentId];
-
-    if (!zone || !equipment || !equipment.allowedZones.includes(zoneId)) {
-      return;
-    }
-
-    setPlaced((current) => {
-      if (zoneId === "refrigeration" && isSoftServe(equipmentId)) {
-        const parent = findStackParent(current, equipmentMap, zoneId);
-
-        if (parent) {
-          const parentDefinition = equipmentMap[parent.definitionId];
-          if (
-            parentDefinition &&
-            parentDefinition.size.height + equipment.size.height <= zone.height
-          ) {
-            return [
-              ...current,
-              {
-                id: `${equipmentId}-${zoneId}-${crypto.randomUUID()}`,
-                definitionId: equipmentId,
-                zoneId,
-                slot: parent.slot,
-                parentId: parent.id
-              }
-            ];
-          }
-        }
-      }
-
-      const nextSlot = countZoneOccupancy(current, zoneId);
-
-      if (nextSlot >= zone.capacity) {
-        return current;
-      }
-
-      if (equipment.size.height > zone.height) {
-        return current;
-      }
-
-      return [
-        ...current,
-        {
-          id: `${equipmentId}-${zoneId}-${crypto.randomUUID()}`,
-          definitionId: equipmentId,
-          zoneId,
-          slot: nextSlot
-        }
-      ];
-    });
-    setSelectedEquipmentId(null);
-    setEditingPlacedId(null);
-  }
 
   function removePlaced(id: string) {
     setPlaced((current) => {
@@ -881,320 +849,404 @@ function App() {
     setEditingPlacedId(id);
   }
 
-  const zoneActionHint = selectedPlaced
-    ? "Click any compatible zone to move the selected item there."
-    : "Click a highlighted zone to place the selected equipment.";
+  const activeStageModelSrc = useMemo(
+    () =>
+      selectedTrailerSize.stageModels[selectedStepId] ??
+      selectedTrailerSize.stageModels.size ??
+      null,
+    [selectedStepId, selectedTrailerSize]
+  );
+
+  const totalItems = placements.length;
+  const selectedItemLabel = selectedPlaced?.definition.name ?? "No item selected";
+  const equipmentSideMenus = useMemo(
+    () => equipmentMenuGroups.filter((group) => group.side === "equipment"),
+    []
+  );
+
+  const inspectorCopy = useMemo(() => {
+    switch (selectedStepId) {
+      case "size":
+        return {
+          title: "Size",
+          description: "Select the trailer size you want to configure.",
+          info: "Choose between a compact 16ft build or a full 30ft kitchen layout."
+        };
+      case "equipment-side":
+        return {
+          title: "Equipment Side",
+          description: "Browse equipment menus generated from your model catalog.",
+          info: `Showing ${equipmentCatalog.length} models across ${equipmentSideMenus.length} equipment menus.`
+        };
+      case "serving-side":
+        return {
+          title: "Serving Side",
+          description: "Serving-side menus have not been added to models.json yet.",
+          info: "Add serving-side entries to the catalog and they can be rendered here the same way."
+        };
+      case "addons-utility":
+        return {
+          title: "Add-ons & Utility",
+          description: "This step is ready for utility-specific menu groups when you add them.",
+          info: "Use models.json as the source of truth for future add-on categories."
+        };
+      case "trailer-customization":
+        return {
+          title: "Trailer Customization",
+          description: "Customization options can be driven from the same catalog structure later.",
+          info: "The 3D stage remains linked to the current trailer size while the catalog expands."
+        };
+      default:
+        return {
+          title: "Configurator",
+          description: "Select a step to continue configuring the trailer.",
+          info: "Choose a menu from the bottom navigation."
+        };
+    }
+  }, [equipmentSideMenus.length, selectedStepId]);
+
+  function applyTrailerSize(trailerSize: TrailerSize) {
+    setSelectedTrailerSizeId(trailerSize.id);
+    setDimensions(trailerSize.dimensions);
+    setSelectedStepId("size");
+    setSelectedEquipmentId(null);
+    setSelectedPlacedId(null);
+    setEditingPlacedId(null);
+  }
 
   return (
     <div className="app-shell">
-      <aside className="control-panel">
-        <div className="panel-section hero">
-          <p className="eyebrow">Food Truck Builder</p>
-          <h1>Lay out a compact kitchen in 3D.</h1>
-          <p className="hero-copy">
-            Adjust the truck shell, drag equipment into the right zone, and review a
-            snap-to-fit interior layout in real time.
-          </p>
+      <main className="experience-shell">
+        <div className="brand-bar">
+          <button className="back-button" type="button" aria-label="Go back">
+            <span aria-hidden="true">&larr;</span>
+          </button>
+          <div className="brand-copy">
+            <div className="brand-title-row">
+              <span className="brand-mark">FT</span>
+              <h1>FoodTrailers</h1>
+            </div>
+            <p>Powered by Ikarus Delta</p>
+          </div>
         </div>
 
-        <section className="panel-section">
-          <div className="section-heading">
-            <h2>Truck Size</h2>
-            <span>meters</span>
-          </div>
-          <div className="input-grid">
-            {(["length", "width", "height"] as const).map((key) => (
-              <label key={key}>
-                <span>{key}</span>
-                <input
-                  type="number"
-                  min={key === "height" ? 2.1 : 1.8}
-                  max={key === "length" ? 12 : 4}
-                  step={0.1}
-                  value={dimensions[key]}
-                  onChange={(event) => updateDimension(key, Number(event.target.value))}
-                />
-              </label>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel-section">
-          <div className="section-heading">
-            <h2>Equipment</h2>
-            <span>drag or click</span>
-          </div>
-          <div className="equipment-list">
-            {equipmentCatalog.map((equipment) => (
-              <button
-                key={equipment.id}
-                className={`equipment-card${
-                  selectedEquipmentId === equipment.id ? " active" : ""
-                }`}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/equipment-id", equipment.id);
-                  setSelectedEquipmentId(equipment.id);
-                  setSelectedPlacedId(null);
+        <div className="experience-stage">
+          <Suspense fallback={<div className="scene-loading">Loading 3D workspace...</div>}>
+            <BuilderScene
+              activeStageModelSrc={activeStageModelSrc}
+              dimensions={dimensions}
+              placements={placements}
+              selectedPlaced={selectedPlaced}
+              selectedPlacedId={selectedPlacedId}
+              isEditingSelected={isEditingSelected}
+              editableEquipmentOptions={editableEquipmentOptions}
+              viewportZoneOptions={viewportZoneOptions}
+              onPlacedSelect={(id) => {
+                setSelectedPlacedId(id);
+                if (id === null) {
                   setEditingPlacedId(null);
-                }}
-                onClick={() => {
-                  setSelectedPlacedId(null);
-                  setEditingPlacedId(null);
-                  setSelectedEquipmentId((current) =>
-                    current === equipment.id ? null : equipment.id
-                  );
-                }}
-              >
-                <span
-                  className="equipment-dot"
-                  style={{ backgroundColor: equipment.color }}
-                />
-                <div>
-                  <strong>{equipment.name}</strong>
-                  <p>
-                    {equipment.size.length}m x {equipment.size.width}m
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel-section">
-          <div className="section-heading">
-            <h2>Zones</h2>
-            <span>drop targets</span>
-          </div>
-          <div className="zone-list">
-            {zoneOrder.map((zoneId) => {
-              const zone = zoneMap[zoneId];
-              const count = zoneCounts[zoneId];
-              const canPlaceNew =
-                !!selectedEquipment &&
-                selectedEquipment.allowedZones.includes(zoneId) &&
-                (zoneId !== "refrigeration" || !isSoftServe(selectedEquipment.id)
-                  ? count < zone.capacity
-                  : count < zone.capacity ||
-                    !!findStackParent(placed, equipmentMap, zoneId));
-              const canMoveSelected =
-                !!selectedPlaced &&
-                selectedPlacedAllowedZones.includes(zoneId) &&
-                (selectedPlaced.item.zoneId === zoneId || count < zone.capacity);
-              const isActionable = canPlaceNew || canMoveSelected;
-
-              return (
-                <button
-                  key={zoneId}
-                  className={`zone-card${isActionable ? " can-accept" : ""}${
-                    selectedPlaced?.item.zoneId === zoneId ? " is-selected" : ""
-                  }`}
-                  onDragOver={(event) => {
-                    if (canPlaceNew) {
-                      event.preventDefault();
-                    }
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const equipmentId = event.dataTransfer.getData("text/equipment-id");
-                    if (equipmentId) {
-                      placeEquipment(equipmentId, zoneId);
-                    }
-                  }}
-                  onClick={() => {
-                    if (selectedPlaced) {
-                      movePlacedToZone(selectedPlaced.item.id, zoneId);
-                      return;
-                    }
-
-                    if (selectedEquipment) {
-                      placeEquipment(selectedEquipment.id, zoneId);
-                    }
-                  }}
-                >
-                  <span className="zone-swatch" style={{ backgroundColor: zone.color }} />
-                  <div>
-                    <strong>{zone.name}</strong>
-                    <p>
-                      {count}/{zone.capacity} floor slots
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          <p className="helper-copy">
-            {zoneActionHint} Refrigeration bay: 16' x 4.6' x 12' with 4 floor slots and
-            optional soft-serve stacking on an undercounter unit.
-          </p>
-        </section>
-
-        <section className="panel-section">
-          <div className="section-heading">
-            <h2>Placed Items</h2>
-            <span>{placed.length} total</span>
-          </div>
-          <div className="placed-list">
-            {placements.length === 0 ? (
-              <p className="empty-state">
-                Start by dragging a piece of equipment into a compatible zone.
-              </p>
-            ) : (
-              placements.map(({ item, definition, zone }) => (
-                <div
-                  key={item.id}
-                  className={`placed-card${selectedPlacedId === item.id ? " active" : ""}`}
-                >
-                  <div>
-                    <strong>{definition.name}</strong>
-                    <p>
-                      {zone.name}
-                      {item.parentId ? " | stacked" : ""}
-                    </p>
-                  </div>
-                  <div className="placed-actions">
-                    <button
-                      onClick={() => {
-                        setSelectedPlacedId(item.id);
-                        setEditingPlacedId(item.id);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button className="danger-button" onClick={() => removePlaced(item.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {selectedPlaced ? (
-          <section className="panel-section">
-            <div className="section-heading">
-              <h2>Edit Item</h2>
-              <span>selected</span>
-            </div>
-            <div className="editor-grid">
-              <label>
-                <span>Equipment</span>
-                <select
-                  value={selectedPlaced.definition.id}
-                  onChange={(event) =>
-                    updatePlacedDefinition(selectedPlaced.item.id, event.target.value)
-                  }
-                  disabled={!!selectedPlaced.item.parentId}
-                >
-                  {editableEquipmentOptions.map((equipment) => (
-                    <option key={equipment.id} value={equipment.id}>
-                      {equipment.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Zone</span>
-                <select
-                  value={selectedPlaced.item.zoneId}
-                  onChange={(event) =>
-                    movePlacedToZone(selectedPlaced.item.id, event.target.value as ZoneId)
-                  }
-                  disabled={!!selectedPlaced.item.parentId}
-                >
-                  {selectedPlacedAllowedZones.map((zoneId) => {
-                    const zone = zoneMap[zoneId];
-                    const count = zoneCounts[zoneId];
-                    const disabled =
-                      zoneId !== selectedPlaced.item.zoneId && count >= zone.capacity;
-
-                    return (
-                      <option key={zoneId} value={zoneId} disabled={disabled}>
-                        {zone.name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </div>
-            <div className="move-actions">
-              <button
-                onClick={() => movePlacedBySlot(selectedPlaced.item.id, -1)}
-                disabled={!!selectedPlaced.item.parentId}
-              >
-                Move Earlier
-              </button>
-              <button
-                onClick={() => movePlacedBySlot(selectedPlaced.item.id, 1)}
-                disabled={!!selectedPlaced.item.parentId}
-              >
-                Move Later
-              </button>
-            </div>
-            <div className="move-actions">
-              <button onClick={() => setSelectedPlacedId(null)}>Done</button>
-              <button
-                className="danger-button"
-                onClick={() => removePlaced(selectedPlaced.item.id)}
-              >
-                Delete Item
-              </button>
-            </div>
-          </section>
-        ) : null}
-      </aside>
-
-      <main className="scene-shell">
-        <div className="scene-header">
-          <div>
-            <p className="eyebrow">3D Layout</p>
-            <h2>
-              {dimensions.length.toFixed(1)}m x {dimensions.width.toFixed(1)}m x{" "}
-              {dimensions.height.toFixed(1)}m
-            </h2>
-          </div>
-          <p>{zoneActionHint}</p>
-        </div>
-        <Suspense fallback={<div className="scene-loading">Loading 3D workspace...</div>}>
-          <BuilderScene
-            dimensions={dimensions}
-            zones={zones}
-            placements={placements}
-            selectedEquipment={selectedEquipment}
-            selectedPlaced={selectedPlaced}
-            selectedPlacedId={selectedPlacedId}
-            isEditingSelected={isEditingSelected}
-            editableEquipmentOptions={editableEquipmentOptions}
-            viewportZoneOptions={viewportZoneOptions}
-            onZoneSelect={placeEquipment}
-            onPlacedSelect={(id) => {
-              setSelectedPlacedId(id);
-              if (id === null) {
-                setEditingPlacedId(null);
+                }
+              }}
+              onMoveEarlier={(id) => movePlacedBySlot(id, -1)}
+              onMoveLater={(id) => movePlacedBySlot(id, 1)}
+              onDeletePlaced={removePlaced}
+              onToggleViewportEdit={(id) =>
+                setEditingPlacedId((current) => (current === id ? null : id))
               }
-            }}
-            onMoveEarlier={(id) => movePlacedBySlot(id, -1)}
-            onMoveLater={(id) => movePlacedBySlot(id, 1)}
-            onDeletePlaced={removePlaced}
-            onToggleViewportEdit={(id) =>
-              setEditingPlacedId((current) => (current === id ? null : id))
-            }
-            onModelMetricsChange={(id, metric) =>
-              setModelMetrics((current) =>
-                current[id] &&
-                current[id].width === metric.width &&
-                current[id].height === metric.height &&
-                current[id].length === metric.length
-                  ? current
-                  : { ...current, [id]: metric }
-              )
-            }
-            onViewportEquipmentChange={updatePlacedDefinition}
-            onViewportZoneChange={movePlacedToZone}
-          />
-        </Suspense>
+              onModelMetricsChange={(id, metric) =>
+                setModelMetrics((current) =>
+                  current[id] &&
+                  current[id].width === metric.width &&
+                  current[id].height === metric.height &&
+                  current[id].length === metric.length
+                    ? current
+                    : { ...current, [id]: metric }
+                )
+              }
+              onViewportEquipmentChange={updatePlacedDefinition}
+              onViewportZoneChange={movePlacedToZone}
+            />
+          </Suspense>
+        </div>
+
+        <div className="stage-toolbar">
+          <button className="toolbar-chip" type="button">
+            {totalItems} items placed
+          </button>
+          <button className="toolbar-chip" type="button">
+            {selectedTrailerSize.label} selected
+          </button>
+          <button className="toolbar-chip wide" type="button">
+            {selectedItemLabel}
+          </button>
+        </div>
+
+        <nav className="bottom-navigation" aria-label="Configurator steps">
+          {configuratorSteps.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              className={`nav-step${selectedStepId === step.id ? " active" : ""}`}
+              onClick={() => setSelectedStepId(step.id)}
+            >
+              {step.label}
+            </button>
+          ))}
+        </nav>
       </main>
+
+      <aside className="inspector-panel">
+        <div className="inspector-scroll">
+          <section className="title-block">
+            <h2>{inspectorCopy.title}</h2>
+            <p>{inspectorCopy.description}</p>
+          </section>
+
+          <section className="info-pill">
+            <span className="info-pill__icon">i</span>
+            <p>{inspectorCopy.info}</p>
+          </section>
+
+          {selectedStepId === "size" ? (
+            <section className="trailer-card-list">
+              {trailerSizes.map((trailerSize) => {
+                const isActive = trailerSize.id === selectedTrailerSize.id;
+
+                return (
+                  <button
+                    key={trailerSize.id}
+                    type="button"
+                    className={`trailer-card${isActive ? " active" : ""}`}
+                    style={
+                      {
+                        "--card-accent": trailerSize.accent,
+                        "--card-accent-soft": trailerSize.accentSoft
+                      } as CSSProperties
+                    }
+                    onClick={() => applyTrailerSize(trailerSize)}
+                  >
+                    <div className="trailer-card__meta size-card__meta">
+                      <span className="price-pill">{trailerSize.label}</span>
+                      <span className="more-link">
+                        {trailerSize.dimensions.length.toFixed(2)}m length
+                      </span>
+                    </div>
+                    <div className="trailer-card__visual" aria-hidden="true">
+                      <div className="trailer-card__mini-stage">
+                        <span className="mini-trailer-body" />
+                        <span className="mini-trailer-roof" />
+                        <span className="mini-trailer-wheel wheel-a" />
+                        <span className="mini-trailer-wheel wheel-b" />
+                      </div>
+                    </div>
+                    <div className="trailer-card__body size-card__body">
+                      <h3>{trailerSize.label}</h3>
+                      <p>{trailerSize.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </section>
+          ) : null}
+
+          {selectedStepId === "equipment-side" ? (
+            <section className="control-section">
+              <div className="section-heading">
+                <h3>Equipment Menus</h3>
+                <span>{equipmentSideMenus.length} categories</span>
+              </div>
+              <div className="menu-group-list">
+                {equipmentSideMenus.map((group, index) => (
+                  <details key={group.id} className="menu-group" open={index === 0}>
+                    <summary>
+                      <span>{group.label}</span>
+                      <span>{group.items.length} models</span>
+                    </summary>
+                    <div className="equipment-list compact">
+                      {group.items.map((equipment) => (
+                        <button
+                          key={equipment.id}
+                          className={`equipment-card${
+                            selectedEquipmentId === equipment.id ? " active" : ""
+                          }`}
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/equipment-id", equipment.id);
+                            setSelectedEquipmentId(equipment.id);
+                            setSelectedPlacedId(null);
+                            setEditingPlacedId(null);
+                          }}
+                          onClick={() => {
+                            setSelectedPlacedId(null);
+                            setEditingPlacedId(null);
+                            setSelectedEquipmentId((current) =>
+                              current === equipment.id ? null : equipment.id
+                            );
+                          }}
+                        >
+                          <span
+                            className="equipment-dot"
+                            style={{ backgroundColor: equipment.color }}
+                          />
+                          <div>
+                            <strong>{equipment.name}</strong>
+                            <p>{equipment.model3d ? equipment.model3d.src.split("/").pop() : ""}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {selectedStepId !== "size" && selectedStepId !== "equipment-side" ? (
+            <section className="control-section">
+              <div className="section-heading">
+                <h3>Catalog Status</h3>
+                <span>{selectedStepId}</span>
+              </div>
+              <p className="empty-state">
+                No menu groups are currently defined for this step in <code>models/models.json</code>.
+              </p>
+            </section>
+          ) : null}
+
+          <details className="advanced-controls">
+            <summary>
+              <span>Advanced Builder Controls</span>
+              <span className="advanced-controls__meta">
+                {placed.length} items | {equipmentCatalog.length} models
+              </span>
+            </summary>
+
+            <div className="advanced-controls__body">
+              <section className="control-section">
+                <div className="section-heading">
+                  <h3>Build Summary</h3>
+                  <span>{placed.length} items</span>
+                </div>
+                <div className="placed-list">
+                  {placements.length === 0 ? (
+                    <p className="empty-state">
+                      Select a model from the generated equipment menus to prepare it for placement.
+                    </p>
+                  ) : (
+                    placements.map(({ item, definition, zone }) => (
+                      <div
+                        key={item.id}
+                        className={`placed-card${selectedPlacedId === item.id ? " active" : ""}`}
+                      >
+                        <div>
+                          <strong>{definition.name}</strong>
+                          <p>
+                            {zone.name}
+                            {item.parentId ? " | stacked" : ""}
+                          </p>
+                        </div>
+                        <div className="placed-actions">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPlacedId(item.id);
+                              setEditingPlacedId(item.id);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-button"
+                            onClick={() => removePlaced(item.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              {selectedPlaced ? (
+                <section className="control-section">
+                  <div className="section-heading">
+                    <h3>Edit Item</h3>
+                    <span>selected</span>
+                  </div>
+                  <div className="editor-grid">
+                    <label>
+                      <span>Equipment</span>
+                      <select
+                        value={selectedPlaced.definition.id}
+                        onChange={(event) =>
+                          updatePlacedDefinition(selectedPlaced.item.id, event.target.value)
+                        }
+                        disabled={!!selectedPlaced.item.parentId}
+                      >
+                        {editableEquipmentOptions.map((equipment) => (
+                          <option key={equipment.id} value={equipment.id}>
+                            {equipment.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Zone</span>
+                      <select
+                        value={selectedPlaced.item.zoneId}
+                        onChange={(event) =>
+                          movePlacedToZone(selectedPlaced.item.id, event.target.value as ZoneId)
+                        }
+                        disabled={!!selectedPlaced.item.parentId}
+                      >
+                        {selectedPlacedAllowedZones.map((zoneId) => {
+                          const zone = zoneMap[zoneId];
+                          const count = zoneCounts[zoneId];
+                          const disabled =
+                            zoneId !== selectedPlaced.item.zoneId && count >= zone.capacity;
+
+                          return (
+                            <option key={zoneId} value={zoneId} disabled={disabled}>
+                              {zone.name}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="move-actions">
+                    <button
+                      type="button"
+                      onClick={() => movePlacedBySlot(selectedPlaced.item.id, -1)}
+                      disabled={!!selectedPlaced.item.parentId}
+                    >
+                      Move Earlier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePlacedBySlot(selectedPlaced.item.id, 1)}
+                      disabled={!!selectedPlaced.item.parentId}
+                    >
+                      Move Later
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </details>
+        </div>
+
+        <div className="sticky-action-bar">
+          <button type="button" className="summary-button">
+            Build Summary
+          </button>
+          <button type="button" className="icon-action-button" aria-label="Save build">
+            <span aria-hidden="true">[]</span>
+          </button>
+        </div>
+      </aside>
     </div>
   );
 }
