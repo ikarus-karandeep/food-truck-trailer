@@ -46,18 +46,21 @@ button {
   grid-template-columns: minmax(0, 1fr) clamp(360px, 31vw, 540px);
   height: 100vh;
   background: #efefed;
+  overflow: hidden;
 }
 
 .experience-shell {
   position: relative;
   min-width: 0;
+  min-height: 0;
+  height: 100vh;
   padding: clamp(16px, 2vw, 24px);
   overflow: hidden;
 }
 
 .experience-stage {
   position: absolute;
-  inset: 0 0 122px 0;
+  inset: 0;
 }
 
 .brand-bar {
@@ -208,11 +211,14 @@ button {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
   background: var(--bg-panel);
   border-left: 1px solid rgba(17, 24, 39, 0.05);
+  overflow: hidden;
 }
 
 .inspector-scroll {
+  min-height: 0;
   overflow-y: auto;
   padding: clamp(16px, 2vw, 22px) clamp(16px, 2vw, 22px) 18px;
 }
@@ -730,6 +736,11 @@ button {
   place-items: center;
   height: 100%;
   color: var(--text-secondary);
+}
+
+.builder-scene-shell {
+  width: 100%;
+  height: 100%;
 }
 
 .viewport-controls {
