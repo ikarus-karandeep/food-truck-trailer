@@ -1,261 +1,18 @@
 import { Suspense, lazy, useMemo, useState, type CSSProperties } from "react";
-import modelCatalogData from "../models/models.json";
-
-type EquipmentDefinition = {
-  id: string;
-  name: string;
-  menuType: string;
-  side: string;
-  level: number;
-  size: {
-    length: number;
-    width: number;
-    height: number;
-  };
-  color: string;
-  model3d?: {
-    src: string;
-    scale: number;
-    yOffset?: number;
-    rotationY?: number;
-  };
-};
-
-type ZoneId =
-  | "equipment-drop";
-
-type Zone = {
-  id: ZoneId;
-  name: string;
-  color: string;
-  x: number;
-  z: number;
-  length: number;
-  width: number;
-  height: number;
-  capacity: number;
-};
-
-type PlacedEquipment = {
-  id: string;
-  definitionId: string;
-  zoneId: ZoneId;
-  manualPlacement?: {
-    x: number;
-    z: number;
-    rotationY: number;
-  };
-};
-
-type PlacementView = {
-  item: PlacedEquipment;
-  definition: EquipmentDefinition;
-  zone: Zone;
-  placement: { x: number; y: number; z: number; rotationY: number };
-};
-
-type DropPlacement = {
-  x: number;
-  z: number;
-  rotationY: number;
-};
-
-type ModelCatalogEntry = {
-  "glb name": string;
-  "menu type": string;
-  level: number;
-  side: string;
-};
-
-type EquipmentMenuGroup = {
-  id: string;
-  label: string;
-  side: string;
-  items: EquipmentDefinition[];
-};
-
-type ConfiguratorStepId =
-  | "size"
-  | "equipment-side"
-  | "serving-side"
-  | "addons-utility"
-  | "trailer-customization";
-
-type TrailerSize = {
-  id: "size-16" | "size-30";
-  label: string;
-  description: string;
-  accent: string;
-  accentSoft: string;
-  stageModels: Partial<Record<ConfiguratorStepId, string>>;
-  dropZoneModels?: Partial<Record<ConfiguratorStepId, string>>;
-};
-
-const FLOOR_Y = 0.08;
-
-const menuAccentPalette = [
-  "#ffcb74",
-  "#ff9966",
-  "#78d4c2",
-  "#8ecae6",
-  "#96b8ff",
-  "#c9a46d",
-  "#f59e0b",
-  "#f472b6",
-  "#34d399",
-  "#a78bfa"
-];
-
-const glbFileModules = import.meta.glob("../models/glb-files/*.glb", {
-  eager: true,
-  import: "default"
-}) as Record<string, string>;
-
-const glbAssetMap = Object.fromEntries(
-  Object.entries(glbFileModules).map(([path, src]) => [path.split("/").pop() ?? path, src])
-) as Record<string, string>;
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\.glb$/i, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function formatModelLabel(glbName: string) {
-  return glbName
-    .replace(/\.glb$/i, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getMenuAccent(menuType: string) {
-  const menuIndex = Array.from(
-    new Set(
-      (modelCatalogData as ModelCatalogEntry[])
-        .map((entry) => entry["menu type"])
-        .filter(Boolean)
-    )
-  ).indexOf(menuType);
-
-  return menuAccentPalette[(menuIndex >= 0 ? menuIndex : 0) % menuAccentPalette.length];
-}
-
-function getDefaultEquipmentSize(level: number) {
-  if (level > 0) {
-    return { length: 0.56, width: 0.48, height: 0.62 };
-  }
-
-  return { length: 0.92, width: 0.76, height: 1.02 };
-}
-
-const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
-  .filter((entry) => entry.side === "equipment")
-  .flatMap((entry) => {
-    const src = glbAssetMap[entry["glb name"]];
-
-    if (!src) {
-      return [];
-    }
-
-    return [
-      {
-        id: slugify(entry["glb name"]),
-        name: formatModelLabel(entry["glb name"]),
-        menuType: entry["menu type"],
-        side: entry.side,
-        level: entry.level,
-        size: getDefaultEquipmentSize(entry.level),
-        color: getMenuAccent(entry["menu type"]),
-        model3d: {
-          src,
-          scale: entry.level > 0 ? 0.82 : 0.88,
-          yOffset: 0
-        }
-      }
-    ];
-  });
-
-const equipmentMenuGroups: EquipmentMenuGroup[] = Array.from(
-  equipmentCatalog.reduce((groups, equipment) => {
-    const key = `${equipment.side}:${equipment.menuType}`;
-    const current = groups.get(key);
-
-    if (current) {
-      current.items.push(equipment);
-      return groups;
-    }
-
-    groups.set(key, {
-      id: slugify(key),
-      label: equipment.menuType,
-      side: equipment.side,
-      items: [equipment]
-    });
-    return groups;
-  }, new Map<string, EquipmentMenuGroup>())
-)
-  .map(([, group]) => ({
-    ...group,
-    items: [...group.items].sort((a, b) => a.name.localeCompare(b.name))
-  }))
-  .sort((a, b) => a.label.localeCompare(b.label));
-
-const trailerSizes: TrailerSize[] = [
-  {
-    id: "size-16",
-    label: "16ft",
-    description: "Compact trailer footprint for lean service builds and tighter parking spaces.",
-    accent: "#dfeafe",
-    accentSoft: "rgba(0, 83, 208, 0.08)",
-    stageModels: {
-      size: new URL("../models/base/16-base.glb", import.meta.url).href,
-      "serving-side": new URL("../models/base/16-serving.glb", import.meta.url).href
-    },
-    dropZoneModels: {
-      "equipment-side": new URL("../models/base/16-equipment-drop-zone.glb", import.meta.url).href
-    }
-  },
-  {
-    id: "size-30",
-    label: "30ft",
-    description: "Expanded trailer footprint for larger kitchen layouts and higher equipment density.",
-    accent: "#f8ddd4",
-    accentSoft: "rgba(218, 99, 75, 0.1)",
-    stageModels: {
-      size: new URL("../models/base/30-hot.glb", import.meta.url).href,
-      "serving-side": new URL("../models/base/30-hot.glb", import.meta.url).href
-    }
-  }
-];
-
-const configuratorSteps = [
-  { id: "size", label: "Size" },
-  { id: "equipment-side", label: "equipment side" },
-  { id: "serving-side", label: "serving side" },
-  { id: "addons-utility", label: "Add-ons & utility" },
-  { id: "trailer-customization", label: "trailer customization" }
-] as const;
+import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
+import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
+import type {
+  ConfiguratorStepId,
+  DropPlacement,
+  EquipmentDefinition,
+  PlacementView,
+  PlacedEquipment,
+  TrailerSize,
+  Zone,
+  ZoneId
+} from "./types";
 
 const BuilderScene = lazy(() => import("./BuilderScene"));
-
-function buildZones(dropZoneBounds?: Partial<Zone>): Zone[] {
-  return [
-    {
-      id: "equipment-drop",
-      name: "Equipment Drop Zone",
-      color: "#ffcb74",
-      x: dropZoneBounds?.x ?? 0,
-      z: dropZoneBounds?.z ?? 0,
-      length: dropZoneBounds?.length ?? 2.2,
-      width: dropZoneBounds?.width ?? 0.9,
-      height: dropZoneBounds?.height ?? 2.5,
-      capacity: Number.POSITIVE_INFINITY
-    }
-  ];
-}
 
 function App() {
   const [selectedStepId, setSelectedStepId] = useState<ConfiguratorStepId>("size");
@@ -293,8 +50,8 @@ function App() {
   );
 
   const placements = useMemo<PlacementView[]>(
-    () => {
-      return placed
+    () =>
+      placed
         .map((item) => {
           const definition = equipmentMap[item.definitionId];
           const zone = zoneMap[item.zoneId];
@@ -309,14 +66,14 @@ function App() {
             zone,
             placement: {
               x: item.manualPlacement?.x ?? zone.x,
-              y: FLOOR_Y,
+              y: item.manualPlacement?.y ?? zone.lineY,
               z: item.manualPlacement?.z ?? zone.z,
-              rotationY: item.manualPlacement?.rotationY ?? 0
+              rotationY: item.manualPlacement?.rotationY ?? 0,
+              scale: item.manualScale ?? 1
             }
           };
         })
-        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-    },
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
     [equipmentMap, placed, zoneMap]
   );
 
@@ -326,13 +83,10 @@ function App() {
   );
   const isEditingSelected = selectedPlacedId !== null && selectedPlacedId === editingPlacedId;
 
-  const editableEquipmentOptions = useMemo(() => {
-    if (!selectedPlaced) {
-      return [];
-    }
-
-    return equipmentCatalog;
-  }, [selectedPlaced]);
+  const editableEquipmentOptions = useMemo(
+    () => (selectedPlaced ? equipmentCatalog : []),
+    [selectedPlaced]
+  );
 
   function removePlaced(id: string) {
     setPlaced((current) => current.filter((item) => item.id !== id));
@@ -394,11 +148,41 @@ function App() {
     setEditingPlacedId(id);
   }
 
+  function updatePlacedScale(id: string, scale: number) {
+    setPlaced((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              manualScale: scale
+            }
+          : item
+      )
+    );
+  }
+
+  function updatePlacedTransform(
+    id: string,
+    manualPlacement: PlacedEquipment["manualPlacement"],
+    scale: number
+  ) {
+    setPlaced((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              manualPlacement,
+              manualScale: scale
+            }
+          : item
+      )
+    );
+  }
+
   const activeStageModelSrc = useMemo(
     () => selectedTrailerSize.stageModels[selectedStepId] ?? null,
     [selectedStepId, selectedTrailerSize]
   );
-
   const activeDropZoneModelSrc = useMemo(
     () => selectedTrailerSize.dropZoneModels?.[selectedStepId] ?? null,
     [selectedStepId, selectedTrailerSize]
@@ -508,6 +292,8 @@ function App() {
                 setDraggingEquipmentId(null);
               }}
               onViewportEquipmentChange={updatePlacedDefinition}
+              onPlacedScaleChange={updatePlacedScale}
+              onPlacedTransformChange={updatePlacedTransform}
             />
           </Suspense>
         </div>
@@ -745,11 +531,3 @@ function App() {
 }
 
 export default App;
-export type {
-  EquipmentDefinition,
-  PlacementView,
-  PlacedEquipment,
-  DropPlacement,
-  Zone,
-  ZoneId
-};

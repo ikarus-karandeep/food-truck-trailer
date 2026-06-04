@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/builderscene.tsx","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.8.3"}
+{"root":["./src/app.tsx","./src/builderscene.tsx","./src/catalog.ts","./src/configurator.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/scene/dropzonemodel.tsx","./src/scene/equipmentvisual.tsx","./src/scene/stagemodel.tsx","./src/scene/viewportcontrols.tsx","./src/scene/dropzone.ts","./src/scene/types.ts"],"version":"5.8.3"}

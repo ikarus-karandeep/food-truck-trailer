@@ -1,22 +1,30 @@
 import {
-  Clone,
   Environment,
   GizmoHelper,
   GizmoViewport,
-  Html,
   OrbitControls,
-  useGLTF
+  TransformControls
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Box3, Group, Material, Object3D, OrthographicCamera, PerspectiveCamera, Raycaster, Vector2, Vector3 } from "three";
+import { Group, OrthographicCamera, PerspectiveCamera, Raycaster, Vector2, Vector3 } from "three";
+import DropZoneModel from "./scene/DropZoneModel";
+import { DragPreviewEquipmentVisual, EquipmentVisual } from "./scene/EquipmentVisual";
+import StageModel from "./scene/StageModel";
+import ViewportControls from "./scene/ViewportControls";
+import {
+  getZoneCenterlineEndpoints,
+  resolveNonIntersectingPlacement,
+  snapPointToZoneCenterline
+} from "./scene/dropZone";
+import type { MeasuredFootprint } from "./scene/types";
 import type {
   DropPlacement,
   EquipmentDefinition,
   PlacementView,
   Zone,
   ZoneId
-} from "./App";
+} from "./types";
 
 type BuilderSceneProps = {
   activeStageModelSrc: string | null;
@@ -31,441 +39,22 @@ type BuilderSceneProps = {
   onPlacedSelect: (placedId: string | null) => void;
   onDeletePlaced: (placedId: string) => void;
   onToggleViewportEdit: (placedId: string) => void;
-  onDropZoneBoundsChange: (bounds: Pick<Zone, "x" | "z" | "length" | "width" | "height"> | null) => void;
+  onDropZoneBoundsChange: (
+    bounds: Pick<Zone, "x" | "y" | "z" | "length" | "width" | "height" | "lineY"> | null
+  ) => void;
   onEquipmentDrop: (
     definitionId: string,
     zoneId: ZoneId | null,
     placement: DropPlacement | null
   ) => void;
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
+  onPlacedScaleChange: (placedId: string, scale: number) => void;
+  onPlacedTransformChange: (
+    placedId: string,
+    manualPlacement: PlacementView["item"]["manualPlacement"],
+    scale: number
+  ) => void;
 };
-
-type MeasuredFootprint = {
-  width: number;
-  length: number;
-  height: number;
-};
-
-function StageModel({
-  src
-}: {
-  src: string | null;
-}) {
-  if (!src) {
-    return null;
-  }
-
-  return <VisibleStageModel src={src} />;
-}
-
-function DropZoneModel({
-  src,
-  referenceSrc,
-  onBoundsChange,
-  onTargetChange
-}: {
-  src: string | null;
-  referenceSrc: string | null;
-  onBoundsChange: (bounds: Pick<Zone, "x" | "z" | "length" | "width" | "height"> | null) => void;
-  onTargetChange: (target: Group | null) => void;
-}) {
-  useEffect(() => {
-    if (!src) {
-      onBoundsChange(null);
-      onTargetChange(null);
-    }
-  }, [src, onBoundsChange, onTargetChange]);
-
-  if (!src) {
-    return null;
-  }
-
-  return (
-    <MeasuredDropZoneModel
-      src={src}
-      referenceSrc={referenceSrc ?? src}
-      onBoundsChange={onBoundsChange}
-      onTargetChange={onTargetChange}
-    />
-  );
-}
-
-function VisibleStageModel({ src }: { src: string }) {
-  const gltf = useGLTF(src);
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
-  const metrics = useMemo(() => {
-    const bounds = new Box3().setFromObject(scene);
-    const center = bounds.getCenter(new Vector3());
-    const size = bounds.getSize(new Vector3());
-    const longestSide = Math.max(size.x, size.y, size.z, 1);
-    const scale = 4.6 / longestSide;
-
-    return {
-      scale,
-      offset: {
-        x: -center.x * scale,
-        y: -bounds.min.y * scale,
-        z: -center.z * scale
-      }
-    };
-  }, [scene]);
-
-  return (
-    <group position={[0, 0.08, 0]}>
-      <group
-        scale={metrics.scale}
-        position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
-      >
-        <Clone object={scene} />
-      </group>
-    </group>
-  );
-}
-
-function MeasuredDropZoneModel({
-  src,
-  referenceSrc,
-  onBoundsChange,
-  onTargetChange
-}: {
-  src: string;
-  referenceSrc: string;
-  onBoundsChange: (bounds: Pick<Zone, "x" | "z" | "length" | "width" | "height"> | null) => void;
-  onTargetChange: (target: Group | null) => void;
-}) {
-  const gltf = useGLTF(src);
-  const referenceGltf = useGLTF(referenceSrc);
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
-  const referenceScene = useMemo(
-    () => referenceGltf.scene.clone(true),
-    [referenceGltf.scene]
-  );
-  const metrics = useMemo(() => {
-    const bounds = new Box3().setFromObject(scene);
-    const referenceBounds = new Box3().setFromObject(referenceScene);
-    const center = bounds.getCenter(new Vector3());
-    const size = bounds.getSize(new Vector3());
-    const referenceCenter = referenceBounds.getCenter(new Vector3());
-    const referenceSize = referenceBounds.getSize(new Vector3());
-    const longestSide = Math.max(referenceSize.x, referenceSize.y, referenceSize.z, 1);
-    const scale = 4.6 / longestSide;
-
-    return {
-      scale,
-      size,
-      offset: {
-        x: -referenceCenter.x * scale,
-        y: -referenceBounds.min.y * scale,
-        z: -referenceCenter.z * scale
-      },
-      center: {
-        x: center.x * scale,
-        y: center.y * scale,
-        z: center.z * scale
-      }
-    };
-  }, [referenceScene, scene]);
-
-  const transformedDropZone = useMemo(() => {
-    const target = new Group();
-    const content = scene.clone(true);
-
-    target.position.set(0, 0.08, 0);
-    content.scale.setScalar(metrics.scale);
-    content.position.set(metrics.offset.x, metrics.offset.y, metrics.offset.z);
-    target.add(content);
-    target.updateMatrixWorld(true);
-
-    return target;
-  }, [metrics.offset.x, metrics.offset.y, metrics.offset.z, metrics.scale, scene]);
-
-  useEffect(() => {
-    onBoundsChange({
-      x: metrics.center.x + metrics.offset.x,
-      z: metrics.center.z + metrics.offset.z,
-      length: metrics.size.z * metrics.scale,
-      width: metrics.size.x * metrics.scale,
-      height: metrics.size.y * metrics.scale
-    });
-  }, [
-    metrics.center.x,
-    metrics.center.z,
-    metrics.offset.x,
-    metrics.offset.z,
-    metrics.scale,
-    metrics.size.x,
-    metrics.size.y,
-    metrics.size.z,
-    onBoundsChange
-  ]);
-
-  useEffect(() => {
-    onTargetChange(transformedDropZone);
-
-    return () => {
-      onTargetChange(null);
-    };
-  }, [onTargetChange, transformedDropZone]);
-
-  return <primitive object={transformedDropZone} />;
-}
-
-function EquipmentVisual({
-  definition,
-  isSelected,
-  onFootprintChange
-}: {
-  definition: EquipmentDefinition;
-  isSelected: boolean;
-  onFootprintChange?: (footprint: MeasuredFootprint) => void;
-}) {
-  const model = definition.model3d;
-
-  if (!model) {
-    return null;
-  }
-
-  return (
-    <ModeledEquipmentVisual
-      definition={definition}
-      isSelected={isSelected}
-      onFootprintChange={onFootprintChange}
-    />
-  );
-}
-
-function ModeledEquipmentVisual({
-  definition,
-  ghost = false,
-  onFootprintChange
-}: {
-  definition: EquipmentDefinition;
-  isSelected: boolean;
-  ghost?: boolean;
-  onFootprintChange?: (footprint: MeasuredFootprint) => void;
-}) {
-  const model = definition.model3d;
-
-  if (!model) {
-    return null;
-  }
-
-  const gltf = useGLTF(model.src);
-  const scene = useMemo(() => {
-    const clone = gltf.scene.clone(true);
-
-    if (!ghost) {
-      return clone;
-    }
-
-    clone.traverse((child: Object3D) => {
-      const mesh = child as Object3D & { material?: Material | Material[] };
-
-      if (!mesh.material) {
-        return;
-      }
-
-      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      const clonedMaterials = materials.map((material) => {
-        const nextMaterial = material.clone();
-        nextMaterial.transparent = true;
-        nextMaterial.opacity = 0.55;
-        return nextMaterial;
-      });
-
-      mesh.material = Array.isArray(mesh.material) ? clonedMaterials : clonedMaterials[0];
-    });
-
-    return clone;
-  }, [ghost, gltf.scene]);
-  const metrics = useMemo(() => {
-    const bounds = new Box3().setFromObject(scene);
-    const center = bounds.getCenter(new Vector3());
-    const rawSize = bounds.getSize(new Vector3());
-    const scaledSize = rawSize.clone().multiplyScalar(model.scale);
-    const normalizedRotation =
-      ((((model.rotationY ?? 0) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2));
-    const quarterTurn =
-      Math.abs(normalizedRotation - Math.PI / 2) < 0.001 ||
-      Math.abs(normalizedRotation - (Math.PI * 3) / 2) < 0.001;
-
-    return {
-      offset: {
-        x: -center.x * model.scale,
-        y: -bounds.min.y * model.scale + (model.yOffset ?? 0),
-        z: -center.z * model.scale
-      },
-      footprint: {
-        width: quarterTurn ? scaledSize.z : scaledSize.x,
-        length: quarterTurn ? scaledSize.x : scaledSize.z,
-        height: scaledSize.y
-      }
-    };
-  }, [model.scale, model.yOffset, scene]);
-
-  useEffect(() => {
-    if (!onFootprintChange) {
-      return;
-    }
-
-    onFootprintChange(metrics.footprint);
-  }, [metrics.footprint, onFootprintChange]);
-
-  return (
-    <group>
-      <group
-        scale={model.scale}
-        position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
-        rotation={[0, model.rotationY ?? 0, 0]}
-      >
-        <Clone object={scene} />
-      </group>
-    </group>
-  );
-}
-
-function ViewportControls({
-  selectedPlaced,
-  isEditingSelected,
-  editableEquipmentOptions,
-  measuredFootprint,
-  onDeletePlaced,
-  onToggleViewportEdit,
-  onViewportEquipmentChange
-}: {
-  selectedPlaced: PlacementView;
-  isEditingSelected: boolean;
-  editableEquipmentOptions: EquipmentDefinition[];
-  measuredFootprint?: MeasuredFootprint;
-  onDeletePlaced: (placedId: string) => void;
-  onToggleViewportEdit: (placedId: string) => void;
-  onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
-}) {
-  const { item, definition } = selectedPlaced;
-  const controlHeight = (measuredFootprint?.height ?? definition.size.height) + 0.35;
-
-  return (
-    <Html
-      position={[0, controlHeight, 0]}
-      center
-      occlude={false}
-      style={{ pointerEvents: "auto" }}
-    >
-      <div className="viewport-controls" onClick={(event) => event.stopPropagation()}>
-        <div className="viewport-actions">
-          <button
-            className="viewport-icon-button"
-            onClick={() => onToggleViewportEdit(item.id)}
-            title="Edit"
-          >
-            ED
-          </button>
-          <button
-            className="viewport-icon-button viewport-delete-button"
-            onClick={() => onDeletePlaced(item.id)}
-            title="Delete"
-          >
-            X
-          </button>
-        </div>
-        {isEditingSelected ? (
-          <div className="viewport-editor">
-            <label>
-              <span>Equipment</span>
-              <select
-                value={definition.id}
-                onChange={(event) =>
-                  onViewportEquipmentChange(item.id, event.target.value)
-                }
-              >
-                {editableEquipmentOptions.map((equipment) => (
-                  <option key={equipment.id} value={equipment.id}>
-                    {equipment.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : null}
-      </div>
-    </Html>
-  );
-}
-
-function DragPreviewEquipmentVisual({
-  definition,
-  placement,
-  onFootprintChange
-}: {
-  definition: EquipmentDefinition;
-  placement: DropPlacement;
-  onFootprintChange?: (footprint: MeasuredFootprint) => void;
-}) {
-  return (
-    <group position={[placement.x, 0.08, placement.z]} rotation={[0, placement.rotationY, 0]}>
-      <ModeledEquipmentVisual
-        definition={definition}
-        isSelected={false}
-        ghost
-        onFootprintChange={onFootprintChange}
-      />
-    </group>
-  );
-}
-
-function getZoneCenterlineEndpoints(zone: Zone) {
-  const lineY = 0.082;
-
-  if (zone.length >= zone.width) {
-    return [
-      new Vector3(zone.x, lineY, zone.z - zone.length / 2),
-      new Vector3(zone.x, lineY, zone.z + zone.length / 2)
-    ] as const;
-  }
-
-  return [
-    new Vector3(zone.x - zone.width / 2, lineY, zone.z),
-    new Vector3(zone.x + zone.width / 2, lineY, zone.z)
-  ] as const;
-}
-
-function getZoneAxisInfo(zone: Zone) {
-  const horizontal = zone.length >= zone.width;
-
-  return {
-    horizontal,
-    min: horizontal ? zone.z - zone.length / 2 : zone.x - zone.width / 2,
-    max: horizontal ? zone.z + zone.length / 2 : zone.x + zone.width / 2
-  };
-}
-
-function getEquipmentAxisSize(
-  definition: EquipmentDefinition,
-  zone: Zone,
-  measuredFootprints: Record<string, MeasuredFootprint>
-) {
-  const measured = measuredFootprints[definition.id];
-
-  if (measured) {
-    return zone.length >= zone.width ? measured.length : measured.width;
-  }
-
-  return zone.length >= zone.width ? definition.size.length : definition.size.width;
-}
-
-function snapPointToZoneCenterline(zone: Zone, point: Vector3) {
-  if (zone.length >= zone.width) {
-    return {
-      x: zone.x,
-      z: Math.min(zone.z + zone.length / 2, Math.max(zone.z - zone.length / 2, point.z))
-    };
-  }
-
-  return {
-    x: Math.min(zone.x + zone.width / 2, Math.max(zone.x - zone.width / 2, point.x)),
-    z: zone.z
-  };
-}
 
 function DropZoneCenterLine({ zone }: { zone: Zone }) {
   const points = useMemo(() => getZoneCenterlineEndpoints(zone), [zone]);
@@ -483,79 +72,7 @@ function DropZoneCenterLine({ zone }: { zone: Zone }) {
   );
 }
 
-function resolveNonIntersectingPlacement(
-  zone: Zone,
-  definition: EquipmentDefinition,
-  point: Vector3,
-  placements: PlacementView[],
-  measuredFootprints: Record<string, MeasuredFootprint>
-) {
-  const axis = getZoneAxisInfo(zone);
-  const itemHalf = getEquipmentAxisSize(definition, zone, measuredFootprints) / 2;
-  const candidate = axis.horizontal ? point.z : point.x;
-  const gap = 0;
-  const occupied = placements
-    .filter(({ item }) => item.zoneId === zone.id)
-    .map(({ definition: placedDefinition, placement }) => {
-      const placedHalf = getEquipmentAxisSize(placedDefinition, zone, measuredFootprints) / 2;
-      const center = axis.horizontal ? placement.z : placement.x;
-
-      return {
-        start: center - placedHalf - gap,
-        end: center + placedHalf + gap
-      };
-    })
-    .sort((a, b) => a.start - b.start);
-
-  const freeSegments: Array<{ start: number; end: number }> = [];
-  let cursor = axis.min;
-
-  for (const interval of occupied) {
-    if (interval.start > cursor) {
-      freeSegments.push({ start: cursor, end: interval.start });
-    }
-
-    cursor = Math.max(cursor, interval.end);
-  }
-
-  if (cursor < axis.max) {
-    freeSegments.push({ start: cursor, end: axis.max });
-  }
-
-  const nearestFit =
-    freeSegments
-      .map((segment) => {
-        const minCenter = segment.start + itemHalf;
-        const maxCenter = segment.end - itemHalf;
-
-        if (minCenter > maxCenter) {
-          return null;
-        }
-
-        const center = Math.min(maxCenter, Math.max(minCenter, candidate));
-        return { center, distance: Math.abs(center - candidate) };
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-      .sort((a, b) => a.distance - b.distance)[0] ?? null;
-
-  if (!nearestFit) {
-    return null;
-  }
-
-  return axis.horizontal
-    ? {
-        x: zone.x,
-        z: nearestFit.center,
-        rotationY: 0
-      }
-    : {
-        x: nearestFit.center,
-        z: zone.z,
-        rotationY: 0
-      };
-}
-
-function BuilderScene({
+export default function BuilderScene({
   activeStageModelSrc,
   dropZoneModelSrc,
   draggingEquipment,
@@ -570,20 +87,28 @@ function BuilderScene({
   onToggleViewportEdit,
   onDropZoneBoundsChange,
   onEquipmentDrop,
-  onViewportEquipmentChange
+  onViewportEquipmentChange,
+  onPlacedScaleChange,
+  onPlacedTransformChange
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
+  const orbitControlsRef = useRef<any>(null);
+  const transformControlsRef = useRef<any>(null);
+  const selectedModelGroupRef = useRef<Group | null>(null);
   const dropZoneTargetRef = useRef<Group | null>(null);
   const raycasterRef = useRef(new Raycaster());
   const pointerRef = useRef(new Vector2());
   const droppableZones = useMemo(() => zones, [zones]);
   const [dragPreviewPlacement, setDragPreviewPlacement] = useState<DropPlacement | null>(null);
-  const [measuredFootprints, setMeasuredFootprints] = useState<Record<string, MeasuredFootprint>>({});
+  const [measuredFootprints, setMeasuredFootprints] = useState<Record<string, MeasuredFootprint>>(
+    {}
+  );
+  const [transformMode, setTransformMode] = useState<"translate" | "scale">("translate");
 
-  function handleFootprintChange(definitionId: string, footprint: MeasuredFootprint) {
+  function handleFootprintChange(measuredId: string, footprint: MeasuredFootprint) {
     setMeasuredFootprints((current) => {
-      const previous = current[definitionId];
+      const previous = current[measuredId];
 
       if (
         previous &&
@@ -596,16 +121,43 @@ function BuilderScene({
 
       return {
         ...current,
-        [definitionId]: footprint
+        [measuredId]: footprint
       };
     });
   }
+
+  useEffect(() => {
+    const controls = transformControlsRef.current;
+    const orbit = orbitControlsRef.current;
+
+    if (!controls || !orbit) {
+      return;
+    }
+
+    function handleDraggingChange(event: { value: boolean }) {
+      if (!orbitControlsRef.current) {
+        return;
+      }
+
+      orbitControlsRef.current.enabled = !event.value;
+    }
+
+    controls.addEventListener("dragging-changed", handleDraggingChange);
+
+    return () => {
+      controls.removeEventListener("dragging-changed", handleDraggingChange);
+    };
+  }, [selectedPlacedId]);
 
   useEffect(() => {
     if (!draggingEquipment) {
       setDragPreviewPlacement(null);
     }
   }, [draggingEquipment]);
+
+  useEffect(() => {
+    setTransformMode("translate");
+  }, [selectedPlacedId]);
 
   function resolveDropTarget(
     event: React.DragEvent<HTMLDivElement>,
@@ -665,15 +217,17 @@ function BuilderScene({
 
     return {
       zoneId: zone?.id ?? null,
-      placement: zone && snappedVector
-        ? resolveNonIntersectingPlacement(
-            zone,
-            definition,
-            snappedVector,
-            placements,
-            measuredFootprints
-          )
-        : null
+      placement:
+        zone && snappedVector
+          ? resolveNonIntersectingPlacement(
+              zone,
+              definition,
+              definition.id,
+              snappedVector,
+              placements,
+              measuredFootprints
+            )
+          : null
     };
   }
 
@@ -691,10 +245,7 @@ function BuilderScene({
       onDragOver={(event) => {
         const dragTypes = Array.from(event.dataTransfer.types ?? []);
 
-        if (
-          !dragTypes.includes("text/equipment-id") &&
-          !dragTypes.includes("text/plain")
-        ) {
+        if (!dragTypes.includes("text/equipment-id") && !dragTypes.includes("text/plain")) {
           return;
         }
 
@@ -761,12 +312,15 @@ function BuilderScene({
 
           {placements.map(({ item, definition, placement }) => {
             const isSelected = selectedPlacedId === item.id;
+            const measuredFootprint = measuredFootprints[item.id];
 
             return (
               <group
                 key={item.id}
+                ref={isSelected ? selectedModelGroupRef : undefined}
                 position={[placement.x, placement.y, placement.z]}
                 rotation={[0, placement.rotationY, 0]}
+                scale={placement.scale}
                 onClick={(event) => {
                   event.stopPropagation();
                   onPlacedSelect(item.id);
@@ -774,18 +328,18 @@ function BuilderScene({
               >
                 <EquipmentVisual
                   definition={definition}
-                  isSelected={isSelected}
-                  onFootprintChange={(footprint) =>
-                    handleFootprintChange(definition.id, footprint)
-                  }
+                  scaleMultiplier={1}
+                  onFootprintChange={(footprint) => handleFootprintChange(item.id, footprint)}
                 />
                 {isSelected && selectedPlaced?.item.id === item.id ? (
                   <ViewportControls
                     selectedPlaced={selectedPlaced}
                     isEditingSelected={isEditingSelected}
                     editableEquipmentOptions={editableEquipmentOptions}
-                    measuredFootprint={measuredFootprints[definition.id]}
+                    transformMode={transformMode}
+                    measuredFootprint={measuredFootprint}
                     onDeletePlaced={onDeletePlaced}
+                    onSetTransformMode={setTransformMode}
                     onToggleViewportEdit={onToggleViewportEdit}
                     onViewportEquipmentChange={onViewportEquipmentChange}
                   />
@@ -793,17 +347,68 @@ function BuilderScene({
               </group>
             );
           })}
+
+          {selectedPlaced ? (
+            <TransformControls
+              ref={transformControlsRef}
+              object={selectedModelGroupRef.current ?? undefined}
+              mode={transformMode}
+              space="local"
+              size={0.65}
+              showX
+              showY
+              showZ
+              onMouseDown={() => {
+                if (orbitControlsRef.current) {
+                  orbitControlsRef.current.enabled = false;
+                }
+              }}
+              onObjectChange={(event: any) => {
+                if (!event?.target?.object) {
+                  return;
+                }
+
+                if (transformMode === "scale") {
+                  const clampedScale = Math.max(
+                    0.25,
+                    Math.min(4, event.target.object.scale.x)
+                  );
+                  event.target.object.scale.setScalar(clampedScale);
+                }
+              }}
+              onMouseUp={(event: any) => {
+                if (orbitControlsRef.current) {
+                  orbitControlsRef.current.enabled = true;
+                }
+                if (!event?.target?.object) {
+                  return;
+                }
+
+                const nextScale = Math.max(0.25, Math.min(4, event.target.object.scale.x));
+                const nextPlacement = {
+                  x: event.target.object.position.x,
+                  y: event.target.object.position.y,
+                  z: event.target.object.position.z,
+                  rotationY: selectedPlaced.placement.rotationY
+                };
+
+                onPlacedScaleChange(selectedPlaced.item.id, nextScale);
+                onPlacedTransformChange(selectedPlaced.item.id, nextPlacement, nextScale);
+              }}
+            />
+          ) : null}
         </group>
         <GizmoHelper alignment="top-right" margin={[88, 88]}>
-          <GizmoViewport
-            axisColors={["#111111", "#6b7280", "#d97706"]}
-            labelColor="#ffffff"
-          />
+          <GizmoViewport axisColors={["#111111", "#6b7280", "#d97706"]} labelColor="#ffffff" />
         </GizmoHelper>
-        <OrbitControls enablePan enableZoom minDistance={4.5} maxDistance={12} />
+        <OrbitControls
+          ref={orbitControlsRef}
+          enablePan
+          enableZoom
+          minDistance={4.5}
+          maxDistance={12}
+        />
       </Canvas>
     </div>
   );
 }
-
-export default BuilderScene;
