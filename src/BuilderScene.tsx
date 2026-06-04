@@ -392,6 +392,10 @@ export default function BuilderScene({
                   rotationY: selectedPlaced.placement.rotationY
                 };
 
+                console.log("placed scale", {
+                  placedId: selectedPlaced.item.id,
+                  scale: nextScale
+                });
                 onPlacedScaleChange(selectedPlaced.item.id, nextScale);
                 onPlacedTransformChange(selectedPlaced.item.id, nextPlacement, nextScale);
               }}
