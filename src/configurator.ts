@@ -1,4 +1,4 @@
-import type { ConfiguratorStepId, TrailerSize, Zone } from "./types";
+import type { ConfiguratorStepId, TrailerSize, Zone, ZoneId } from "./types";
 
 export const FLOOR_Y = 0.08;
 
@@ -41,7 +41,7 @@ export const configuratorSteps: Array<{ id: ConfiguratorStepId; label: string }>
 ];
 
 export function buildZones(dropZoneBounds?: Partial<Zone>): Zone[] {
-  return [
+  const zones: Zone[] = [
     {
       id: "equipment-drop",
       name: "Equipment Drop Zone",
@@ -52,8 +52,23 @@ export function buildZones(dropZoneBounds?: Partial<Zone>): Zone[] {
       length: dropZoneBounds?.length ?? 2.2,
       width: dropZoneBounds?.width ?? 0.9,
       height: dropZoneBounds?.height ?? 2.5,
-      lineY: dropZoneBounds?.lineY ?? FLOOR_Y + 0.002,
+      lineY: dropZoneBounds?.lineY ?? FLOOR_Y,
+      capacity: Number.POSITIVE_INFINITY
+    },
+    {
+      id: "serving-drop" as ZoneId,
+      name: "Serving Drop Zone",
+      color: "#78d4c2",
+      x: dropZoneBounds?.x ?? 1.8,
+      y: dropZoneBounds?.y ?? FLOOR_Y,
+      z: dropZoneBounds?.z ?? 0,
+      length: dropZoneBounds?.length ?? 2.2,
+      width: dropZoneBounds?.width ?? 0.9,
+      height: dropZoneBounds?.height ?? 2.5,
+      lineY: dropZoneBounds?.lineY ?? FLOOR_Y,
       capacity: Number.POSITIVE_INFINITY
     }
   ];
+
+  return zones;
 }

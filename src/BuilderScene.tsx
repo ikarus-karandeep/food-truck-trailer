@@ -2,17 +2,18 @@ import {
   Environment,
   GizmoHelper,
   GizmoViewport,
-  OrbitControls,
-  TransformControls
+  OrbitControls
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Group, OrthographicCamera, PerspectiveCamera, Raycaster, Vector2, Vector3 } from "three";
 import DropZoneModel from "./scene/DropZoneModel";
 import { DragPreviewEquipmentVisual, EquipmentVisual } from "./scene/EquipmentVisual";
 import StageModel from "./scene/StageModel";
 import ViewportControls from "./scene/ViewportControls";
 import {
+  getEquipmentAxisSize,
+  getZoneAxisInfo,
   getZoneCenterlineEndpoints,
   resolveNonIntersectingPlacement,
   snapPointToZoneCenterline
@@ -32,9 +33,7 @@ type BuilderSceneProps = {
   draggingEquipment: EquipmentDefinition | null;
   zones: Zone[];
   placements: PlacementView[];
-  selectedPlaced: PlacementView | null;
-  selectedPlacedId: string | null;
-  isEditingSelected: boolean;
+  editingPlacedId: string | null;
   editableEquipmentOptions: EquipmentDefinition[];
   onPlacedSelect: (placedId: string | null) => void;
   onDeletePlaced: (placedId: string) => void;
@@ -48,12 +47,8 @@ type BuilderSceneProps = {
     placement: DropPlacement | null
   ) => void;
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
-  onPlacedScaleChange: (placedId: string, scale: number) => void;
-  onPlacedTransformChange: (
-    placedId: string,
-    manualPlacement: PlacementView["item"]["manualPlacement"],
-    scale: number
-  ) => void;
+  onMeasuredFootprintsChange: (footprints: Record<string, MeasuredFootprint>) => void;
+  onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
 };
 
 function DropZoneCenterLine({ zone }: { zone: Zone }) {
@@ -78,9 +73,7 @@ export default function BuilderScene({
   draggingEquipment,
   zones,
   placements,
-  selectedPlaced,
-  selectedPlacedId,
-  isEditingSelected,
+  editingPlacedId,
   editableEquipmentOptions,
   onPlacedSelect,
   onDeletePlaced,
@@ -88,23 +81,22 @@ export default function BuilderScene({
   onDropZoneBoundsChange,
   onEquipmentDrop,
   onViewportEquipmentChange,
-  onPlacedScaleChange,
-  onPlacedTransformChange
+  onMeasuredFootprintsChange,
+  onSwapPlaced
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
   const orbitControlsRef = useRef<any>(null);
-  const transformControlsRef = useRef<any>(null);
-  const selectedModelGroupRef = useRef<Group | null>(null);
   const dropZoneTargetRef = useRef<Group | null>(null);
   const raycasterRef = useRef(new Raycaster());
   const pointerRef = useRef(new Vector2());
+  const hoverClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const droppableZones = useMemo(() => zones, [zones]);
   const [dragPreviewPlacement, setDragPreviewPlacement] = useState<DropPlacement | null>(null);
   const [measuredFootprints, setMeasuredFootprints] = useState<Record<string, MeasuredFootprint>>(
     {}
   );
-  const [transformMode, setTransformMode] = useState<"translate" | "scale">("translate");
+  const [hoveredPlacedId, setHoveredPlacedId] = useState<string | null>(null);
 
   function handleFootprintChange(measuredId: string, footprint: MeasuredFootprint) {
     setMeasuredFootprints((current) => {
@@ -127,37 +119,83 @@ export default function BuilderScene({
   }
 
   useEffect(() => {
-    const controls = transformControlsRef.current;
-    const orbit = orbitControlsRef.current;
-
-    if (!controls || !orbit) {
-      return;
-    }
-
-    function handleDraggingChange(event: { value: boolean }) {
-      if (!orbitControlsRef.current) {
-        return;
-      }
-
-      orbitControlsRef.current.enabled = !event.value;
-    }
-
-    controls.addEventListener("dragging-changed", handleDraggingChange);
-
-    return () => {
-      controls.removeEventListener("dragging-changed", handleDraggingChange);
-    };
-  }, [selectedPlacedId]);
-
-  useEffect(() => {
     if (!draggingEquipment) {
       setDragPreviewPlacement(null);
     }
   }, [draggingEquipment]);
 
   useEffect(() => {
-    setTransformMode("translate");
-  }, [selectedPlacedId]);
+    onMeasuredFootprintsChange(measuredFootprints);
+  }, [measuredFootprints, onMeasuredFootprintsChange]);
+
+  useEffect(
+    () => () => {
+      if (hoverClearTimeoutRef.current) {
+        clearTimeout(hoverClearTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  function keepControlsVisible(placedId: string) {
+    if (hoverClearTimeoutRef.current) {
+      clearTimeout(hoverClearTimeoutRef.current);
+      hoverClearTimeoutRef.current = null;
+    }
+
+    setHoveredPlacedId((prev) => (prev === placedId ? prev : placedId));
+  }
+
+  function scheduleControlsHide(placedId: string) {
+    if (hoverClearTimeoutRef.current) {
+      clearTimeout(hoverClearTimeoutRef.current);
+    }
+
+    hoverClearTimeoutRef.current = setTimeout(() => {
+      // Don't hide if this item is currently being edited
+      if (editingPlacedId === placedId) {
+        hoverClearTimeoutRef.current = null;
+        return;
+      }
+
+      setHoveredPlacedId((current) => (current === placedId ? null : current));
+      hoverClearTimeoutRef.current = null;
+    }, 1200);
+  }
+
+  function getSwapAvailability(placementView: PlacementView) {
+    const horizontal = placementView.zone.length >= placementView.zone.width;
+    const axis = getZoneAxisInfo(placementView.zone);
+    const itemHalf =
+      getEquipmentAxisSize(
+        placementView.definition,
+        placementView.item.id,
+        placementView.zone,
+        measuredFootprints
+      ) / 2;
+    const currentAxis = horizontal ? placementView.placement.z : placementView.placement.x;
+    const canMoveLeft = currentAxis > axis.min + itemHalf + 0.001;
+    const canMoveRight = currentAxis < axis.max - itemHalf - 0.001;
+    const peers = placements
+      .filter(
+        ({ item, definition, zone }) =>
+          item.zoneId === placementView.item.zoneId &&
+          zone.id === placementView.zone.id &&
+          definition.level === placementView.definition.level
+      )
+      .sort((a, b) => {
+        const aAxis = horizontal ? a.placement.z : a.placement.x;
+        const bAxis = horizontal ? b.placement.z : b.placement.x;
+
+        return aAxis - bAxis;
+      });
+    const index = peers.findIndex(({ item }) => item.id === placementView.item.id);
+
+    return {
+      canSwapLeft: index > 0 || canMoveLeft,
+      canSwapRight: (index >= 0 && index < peers.length - 1) || canMoveRight
+    };
+  }
 
   function resolveDropTarget(
     event: React.DragEvent<HTMLDivElement>,
@@ -288,36 +326,45 @@ export default function BuilderScene({
           shadow-mapSize-height={2048}
         />
         <group onPointerMissed={() => onPlacedSelect(null)}>
-          <StageModel src={activeStageModelSrc} />
-          <DropZoneModel
-            src={dropZoneModelSrc}
-            referenceSrc={activeStageModelSrc}
-            onBoundsChange={onDropZoneBoundsChange}
-            onTargetChange={(target) => {
-              dropZoneTargetRef.current = target;
-            }}
-          />
+          <Suspense fallback={null}>
+            <StageModel src={activeStageModelSrc} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <DropZoneModel
+              src={dropZoneModelSrc}
+              referenceSrc={activeStageModelSrc}
+              onBoundsChange={onDropZoneBoundsChange}
+              onTargetChange={(target) => {
+                dropZoneTargetRef.current = target;
+              }}
+            />
+          </Suspense>
           {droppableZones.map((zone) => (
             <DropZoneCenterLine key={zone.id} zone={zone} />
           ))}
           {draggingEquipment && dragPreviewPlacement ? (
-            <DragPreviewEquipmentVisual
-              definition={draggingEquipment}
-              placement={dragPreviewPlacement}
-              onFootprintChange={(footprint) =>
-                handleFootprintChange(draggingEquipment.id, footprint)
-              }
-            />
+            <Suspense fallback={null}>
+              <DragPreviewEquipmentVisual
+                definition={draggingEquipment}
+                placement={dragPreviewPlacement}
+                onFootprintChange={(footprint) =>
+                  handleFootprintChange(draggingEquipment.id, footprint)
+                }
+              />
+            </Suspense>
           ) : null}
 
           {placements.map(({ item, definition, placement }) => {
-            const isSelected = selectedPlacedId === item.id;
+            const isHovered = hoveredPlacedId === item.id;
             const measuredFootprint = measuredFootprints[item.id];
+            const placementView = placements.find(({ item: candidate }) => candidate.id === item.id);
+            const swapAvailability = placementView
+              ? getSwapAvailability(placementView)
+              : { canSwapLeft: false, canSwapRight: false };
 
             return (
               <group
                 key={item.id}
-                ref={isSelected ? selectedModelGroupRef : undefined}
                 position={[placement.x, placement.y, placement.z]}
                 rotation={[0, placement.rotationY, 0]}
                 scale={placement.scale}
@@ -325,82 +372,47 @@ export default function BuilderScene({
                   event.stopPropagation();
                   onPlacedSelect(item.id);
                 }}
+                onPointerEnter={(event) => {
+                  event.stopPropagation();
+                  keepControlsVisible(item.id);
+                }}
+                onPointerLeave={(event) => {
+                  event.stopPropagation();
+                  scheduleControlsHide(item.id);
+                }}
               >
-                <EquipmentVisual
-                  definition={definition}
-                  scaleMultiplier={1}
-                  onFootprintChange={(footprint) => handleFootprintChange(item.id, footprint)}
-                />
-                {isSelected && selectedPlaced?.item.id === item.id ? (
+                <Suspense fallback={null}>
+                  <EquipmentVisual
+                    definition={definition}
+                    scaleMultiplier={1}
+                    onFootprintChange={(footprint) => handleFootprintChange(item.id, footprint)}
+                  />
+                </Suspense>
+                {isHovered && placementView ? (
                   <ViewportControls
-                    selectedPlaced={selectedPlaced}
-                    isEditingSelected={isEditingSelected}
+                    selectedPlaced={placementView}
+                    isEditingSelected={editingPlacedId === item.id}
                     editableEquipmentOptions={editableEquipmentOptions}
-                    transformMode={transformMode}
                     measuredFootprint={measuredFootprint}
+                    canSwapLeft={swapAvailability.canSwapLeft}
+                    canSwapRight={swapAvailability.canSwapRight}
                     onDeletePlaced={onDeletePlaced}
-                    onSetTransformMode={setTransformMode}
+                    onSwapPlaced={onSwapPlaced}
                     onToggleViewportEdit={onToggleViewportEdit}
                     onViewportEquipmentChange={onViewportEquipmentChange}
+                    onControlsHoverChange={(hovered) => {
+                      if (hovered) {
+                        keepControlsVisible(item.id);
+                        return;
+                      }
+
+                      scheduleControlsHide(item.id);
+                    }}
                   />
                 ) : null}
               </group>
             );
           })}
-
-          {selectedPlaced ? (
-            <TransformControls
-              ref={transformControlsRef}
-              object={selectedModelGroupRef.current ?? undefined}
-              mode={transformMode}
-              space="local"
-              size={0.65}
-              showX
-              showY
-              showZ
-              onMouseDown={() => {
-                if (orbitControlsRef.current) {
-                  orbitControlsRef.current.enabled = false;
-                }
-              }}
-              onObjectChange={(event: any) => {
-                if (!event?.target?.object) {
-                  return;
-                }
-
-                if (transformMode === "scale") {
-                  const clampedScale = Math.max(
-                    0.25,
-                    Math.min(4, event.target.object.scale.x)
-                  );
-                  event.target.object.scale.setScalar(clampedScale);
-                }
-              }}
-              onMouseUp={(event: any) => {
-                if (orbitControlsRef.current) {
-                  orbitControlsRef.current.enabled = true;
-                }
-                if (!event?.target?.object) {
-                  return;
-                }
-
-                const nextScale = Math.max(0.25, Math.min(4, event.target.object.scale.x));
-                const nextPlacement = {
-                  x: event.target.object.position.x,
-                  y: event.target.object.position.y,
-                  z: event.target.object.position.z,
-                  rotationY: selectedPlaced.placement.rotationY
-                };
-
-                console.log("placed scale", {
-                  placedId: selectedPlaced.item.id,
-                  scale: nextScale
-                });
-                onPlacedScaleChange(selectedPlaced.item.id, nextScale);
-                onPlacedTransformChange(selectedPlaced.item.id, nextPlacement, nextScale);
-              }}
-            />
-          ) : null}
         </group>
         <GizmoHelper alignment="top-right" margin={[88, 88]}>
           <GizmoViewport axisColors={["#111111", "#6b7280", "#d97706"]} labelColor="#ffffff" />

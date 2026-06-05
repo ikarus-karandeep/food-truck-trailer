@@ -18,7 +18,7 @@ export type EquipmentDefinition = {
   };
 };
 
-export type ZoneId = "equipment-drop";
+export type ZoneId = "equipment-drop" | "serving-drop";
 
 export type Zone = {
   id: ZoneId;

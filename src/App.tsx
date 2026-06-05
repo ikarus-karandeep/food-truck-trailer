@@ -1,6 +1,9 @@
-import { Suspense, lazy, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, useEffect, type CSSProperties } from "react";
+import { Vector3 } from "three";
 import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
 import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
+import { resolveNonIntersectingPlacement } from "./scene/dropZone";
+import type { MeasuredFootprint } from "./scene/types";
 import type {
   ConfiguratorStepId,
   DropPlacement,
@@ -12,7 +15,7 @@ import type {
   ZoneId
 } from "./types";
 
-const BuilderScene = lazy(() => import("./BuilderScene"));
+import BuilderScene from "./BuilderScene";
 
 function App() {
   const [selectedStepId, setSelectedStepId] = useState<ConfiguratorStepId>("size");
@@ -24,11 +27,25 @@ function App() {
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
   const [editingPlacedId, setEditingPlacedId] = useState<string | null>(null);
   const [dropZoneBounds, setDropZoneBounds] = useState<Partial<Zone> | null>(null);
+  const [measuredFootprints, setMeasuredFootprints] = useState<
+    Record<string, MeasuredFootprint>
+  >({});
 
-  const zones = useMemo(
-    () => buildZones(selectedStepId === "equipment-side" ? dropZoneBounds ?? undefined : undefined),
-    [dropZoneBounds, selectedStepId]
-  );
+  const zones = useMemo(() => {
+    const allZones = buildZones(
+      selectedStepId === "equipment-side" || selectedStepId === "serving-side"
+        ? dropZoneBounds ?? undefined
+        : undefined
+    );
+
+    if (selectedStepId === "equipment-side") {
+      return allZones.filter((z) => z.id === "equipment-drop");
+    }
+    if (selectedStepId === "serving-side") {
+      return allZones.filter((z) => z.id === "serving-drop");
+    }
+    return [];
+  }, [dropZoneBounds, selectedStepId]);
   const zoneMap = useMemo(
     () => Object.fromEntries(zones.map((zone) => [zone.id, zone])) as Record<ZoneId, Zone>,
     [zones]
@@ -81,15 +98,119 @@ function App() {
     () => placements.find(({ item }) => item.id === selectedPlacedId) ?? null,
     [placements, selectedPlacedId]
   );
-  const isEditingSelected = selectedPlacedId !== null && selectedPlacedId === editingPlacedId;
+
 
   const editableEquipmentOptions = useMemo(
     () => (selectedPlaced ? equipmentCatalog : []),
     [selectedPlaced]
   );
 
+  function compactItems(
+    items: PlacedEquipment[],
+    zoneId: ZoneId,
+    level: number
+  ): PlacedEquipment[] {
+    const zone = zoneMap[zoneId];
+    if (!zone) return items;
+
+    const horizontal = zone.length >= zone.width;
+
+    const peers = items
+      .map((item) => {
+        const def = equipmentMap[item.definitionId];
+        if (!def || item.zoneId !== zoneId || def.level !== level) {
+          return null;
+        }
+        const axisPos = horizontal
+          ? (item.manualPlacement?.z ?? zone.z)
+          : (item.manualPlacement?.x ?? zone.x);
+        const footprint = measuredFootprints[item.id];
+        const halfSize = (footprint
+          ? (horizontal ? footprint.length : footprint.width)
+          : (horizontal ? def.size.length : def.size.width)) / 2;
+        return { item, def, axisPos, halfSize };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .sort((a, b) => a.axisPos - b.axisPos);
+
+    if (peers.length === 0) return items;
+
+    const axisMax = horizontal
+      ? zone.z + zone.length / 2
+      : zone.x + zone.width / 2;
+
+    let cursor = axisMax;
+    const updatedPositions = new Map<string, number>();
+    const PADDING = 0.01; // 1cm gap between models
+
+    for (const peer of [...peers].reverse()) {
+      const center = cursor - peer.halfSize;
+      updatedPositions.set(peer.item.id, center);
+      cursor = center - peer.halfSize - PADDING;
+    }
+
+    return items.map((item) => {
+      const newAxisPos = updatedPositions.get(item.id);
+      if (newAxisPos === undefined) return item;
+
+      const currentPlacement = item.manualPlacement;
+      return {
+        ...item,
+        manualPlacement: currentPlacement
+          ? {
+              ...currentPlacement,
+              ...(horizontal ? { z: newAxisPos } : { x: newAxisPos })
+            }
+          : undefined
+      };
+    });
+  }
+
+  function compactPlacedItems(
+    remainingItems: PlacedEquipment[],
+    deletedItem: PlacedEquipment
+  ): PlacedEquipment[] {
+    const deletedDefinition = equipmentMap[deletedItem.definitionId];
+    if (!deletedDefinition) return remainingItems;
+    return compactItems(remainingItems, deletedItem.zoneId, deletedDefinition.level);
+  }
+
+  useEffect(() => {
+    setPlaced((current) => {
+      let updated = [...current];
+      // Collect unique (zone, level) pairs to compact
+      const pairs = new Set<string>();
+      current.forEach((item) => {
+        const def = equipmentMap[item.definitionId];
+        if (def && item.zoneId) {
+          pairs.add(`${item.zoneId}|${def.level}`);
+        }
+      });
+
+      pairs.forEach((pair) => {
+        const [zoneId, levelStr] = pair.split("|");
+        updated = compactItems(updated, zoneId as ZoneId, parseInt(levelStr, 10));
+      });
+
+      // Avoid state update if nothing changed (shallow equal check on positions)
+      const changed = updated.some(
+        (item, idx) =>
+          item.manualPlacement?.x !== current[idx].manualPlacement?.x ||
+          item.manualPlacement?.z !== current[idx].manualPlacement?.z
+      );
+
+      return changed ? updated : current;
+    });
+  }, [measuredFootprints, equipmentMap, zoneMap]);
   function removePlaced(id: string) {
-    setPlaced((current) => current.filter((item) => item.id !== id));
+    setPlaced((current) => {
+      const deletedItem = current.find((item) => item.id === id);
+      const remaining = current.filter((item) => item.id !== id);
+
+      if (!deletedItem) return remaining;
+
+      return compactPlacedItems(remaining, deletedItem);
+    });
     setSelectedPlacedId((current) => (current === id ? null : current));
     setEditingPlacedId((current) => (current === id ? null : current));
   }
@@ -128,7 +249,97 @@ function App() {
     setEditingPlacedId(null);
   }
 
+  function placeEquipmentAtNextPosition(definitionId: string) {
+    const definition = equipmentMap[definitionId];
+    const zone = zones[0];
+
+    if (!definition || !zone) {
+      return;
+    }
+
+    const lowerLevelPlacement =
+      definition.level > 0
+        ? placements.find(({ definition: placedDefinition, placement }) => {
+            const alreadySupportsSameLevel = placements.some(
+              ({ definition: stackedDefinition, placement: stackedPlacement }) =>
+                stackedDefinition.level === definition.level &&
+                stackedPlacement.x === placement.x &&
+                stackedPlacement.z === placement.z
+            );
+
+            return placedDefinition.level === definition.level - 1 && !alreadySupportsSameLevel;
+          }) ??
+          placements.find(
+            ({ definition: placedDefinition }) => placedDefinition.level === definition.level - 1
+          ) ??
+          null
+        : null;
+
+    if (definition.level > 0 && lowerLevelPlacement) {
+      const createdId = `${definitionId}-${crypto.randomUUID()}`;
+      const lowerScale = lowerLevelPlacement.placement.scale;
+      const lowerHeight =
+        measuredFootprints[lowerLevelPlacement.item.id]?.height ??
+        lowerLevelPlacement.definition.size.height;
+
+      setPlaced((current) => [
+        ...current,
+        {
+          id: createdId,
+          definitionId,
+          zoneId: lowerLevelPlacement.zone.id,
+          manualPlacement: {
+            x: lowerLevelPlacement.placement.x,
+            y: lowerLevelPlacement.placement.y + lowerHeight * lowerScale + 0.01,
+            z: lowerLevelPlacement.placement.z,
+            rotationY: lowerLevelPlacement.placement.rotationY
+          }
+        }
+      ]);
+      setSelectedEquipmentId(definitionId);
+      setSelectedPlacedId(createdId);
+      setEditingPlacedId(null);
+      return;
+    }
+
+    const startPoint =
+      zone.length >= zone.width
+        ? new Vector3(zone.x, zone.lineY, zone.z + zone.length / 2)
+        : new Vector3(zone.x + zone.width / 2, zone.lineY, zone.z);
+    const placement = resolveNonIntersectingPlacement(
+      zone,
+      definition,
+      definition.id,
+      startPoint,
+      placements,
+      measuredFootprints
+    );
+
+    if (!placement) {
+      return;
+    }
+
+    const createdId = `${definitionId}-${crypto.randomUUID()}`;
+
+    setPlaced((current) => [
+      ...current,
+      {
+        id: createdId,
+        definitionId,
+        zoneId: zone.id,
+        manualPlacement: placement
+      }
+    ]);
+    setSelectedEquipmentId(definitionId);
+    setSelectedPlacedId(createdId);
+    setEditingPlacedId(null);
+  }
   function updatePlacedDefinition(id: string, definitionId: string) {
+    setMeasuredFootprints((current) => {
+      const { [id]: _, ...rest } = current;
+      return rest;
+    });
+
     setPlaced((current) => {
       const target = current.find((item) => item.id === id);
 
@@ -136,7 +347,7 @@ function App() {
         return current;
       }
 
-      return current.map((item) =>
+      const updated = current.map((item) =>
         item.id === id
           ? {
               ...item,
@@ -144,39 +355,128 @@ function App() {
             }
           : item
       );
+
+      const changedItem = updated.find((item) => item.id === id);
+      if (!changedItem) return updated;
+
+      return compactPlacedItems(updated, changedItem);
     });
     setEditingPlacedId(id);
   }
 
-  function updatePlacedScale(id: string, scale: number) {
-    setPlaced((current) =>
-      current.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              manualScale: scale
-            }
-          : item
-      )
-    );
-  }
+  function swapPlacedWithNeighbor(id: string, direction: "left" | "right") {
+    const currentPlacement = placements.find(({ item }) => item.id === id);
 
-  function updatePlacedTransform(
-    id: string,
-    manualPlacement: PlacedEquipment["manualPlacement"],
-    scale: number
-  ) {
-    setPlaced((current) =>
-      current.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              manualPlacement,
-              manualScale: scale
-            }
-          : item
+    if (!currentPlacement) {
+      return;
+    }
+
+    const horizontal = currentPlacement.zone.length >= currentPlacement.zone.width;
+    const sortedPeers = placements
+      .filter(
+        ({ item, definition, zone }) =>
+          item.zoneId === currentPlacement.item.zoneId &&
+          zone.id === currentPlacement.zone.id &&
+          definition.level === currentPlacement.definition.level
       )
+      .sort((a, b) => {
+        const aAxis = horizontal ? a.placement.z : a.placement.x;
+        const bAxis = horizontal ? b.placement.z : b.placement.x;
+
+        return aAxis - bAxis;
+      });
+    const currentIndex = sortedPeers.findIndex(({ item }) => item.id === id);
+    const neighborIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+    const neighbor = sortedPeers[neighborIndex];
+
+    if (currentIndex < 0) {
+      return;
+    }
+
+    if (!neighbor) {
+      const endPoint =
+        horizontal
+          ? new Vector3(
+              currentPlacement.zone.x,
+              currentPlacement.zone.lineY,
+              currentPlacement.zone.z +
+                (direction === "left" ? -1 : 1) * (currentPlacement.zone.length / 2)
+            )
+          : new Vector3(
+              currentPlacement.zone.x +
+                (direction === "left" ? -1 : 1) * (currentPlacement.zone.width / 2),
+              currentPlacement.zone.lineY,
+              currentPlacement.zone.z
+            );
+      const nextPlacement = resolveNonIntersectingPlacement(
+        currentPlacement.zone,
+        currentPlacement.definition,
+        currentPlacement.item.id,
+        endPoint,
+        placements.filter(
+          ({ item, definition }) =>
+            item.id !== id && definition.level === currentPlacement.definition.level
+        ),
+        measuredFootprints
+      );
+
+      if (!nextPlacement) {
+        return;
+      }
+
+      setPlaced((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                manualPlacement: {
+                  ...nextPlacement,
+                  y: currentPlacement.placement.y,
+                  rotationY: currentPlacement.placement.rotationY
+                }
+              }
+            : item
+        )
+      );
+      setSelectedPlacedId(id);
+      setEditingPlacedId(null);
+      return;
+    }
+
+    const currentManualPlacement = currentPlacement.item.manualPlacement ?? {
+      x: currentPlacement.placement.x,
+      y: currentPlacement.placement.y,
+      z: currentPlacement.placement.z,
+      rotationY: currentPlacement.placement.rotationY
+    };
+    const neighborManualPlacement = neighbor.item.manualPlacement ?? {
+      x: neighbor.placement.x,
+      y: neighbor.placement.y,
+      z: neighbor.placement.z,
+      rotationY: neighbor.placement.rotationY
+    };
+
+    setPlaced((current) =>
+      current.map((item) => {
+        if (item.id === currentPlacement.item.id) {
+          return {
+            ...item,
+            manualPlacement: neighborManualPlacement
+          };
+        }
+
+        if (item.id === neighbor.item.id) {
+          return {
+            ...item,
+            manualPlacement: currentManualPlacement
+          };
+        }
+
+        return item;
+      })
     );
+    setSelectedPlacedId(id);
+    setEditingPlacedId(null);
   }
 
   const activeStageModelSrc = useMemo(
@@ -210,14 +510,14 @@ function App() {
       case "equipment-side":
         return {
           title: "Equipment Side",
-          description: "Drag equipment into the drop zone to build the layout.",
+          description: "Click or drag equipment into the drop zone to build the layout.",
           info: `Showing ${equipmentCatalog.length} models across ${equipmentSideMenus.length} equipment menus.`
         };
       case "serving-side":
         return {
           title: "Serving Side",
-          description: "Serving-side configuration will appear here.",
-          info: "This step is not active yet."
+          description: "Click or drag equipment onto the serving counter.",
+          info: `Configure the service hatch and customer-facing equipment.`
         };
       case "addons-utility":
         return {
@@ -265,16 +565,13 @@ function App() {
         </div>
 
         <div className="experience-stage">
-          <Suspense fallback={<div className="scene-loading">Loading 3D workspace...</div>}>
             <BuilderScene
               activeStageModelSrc={activeStageModelSrc}
               dropZoneModelSrc={activeDropZoneModelSrc}
               draggingEquipment={draggingEquipment}
               zones={zones}
               placements={placements}
-              selectedPlaced={selectedPlaced}
-              selectedPlacedId={selectedPlacedId}
-              isEditingSelected={isEditingSelected}
+              editingPlacedId={editingPlacedId}
               editableEquipmentOptions={editableEquipmentOptions}
               onPlacedSelect={(id) => {
                 setSelectedPlacedId(id);
@@ -286,16 +583,30 @@ function App() {
               onToggleViewportEdit={(id) =>
                 setEditingPlacedId((current) => (current === id ? null : id))
               }
-              onDropZoneBoundsChange={(bounds) => setDropZoneBounds(bounds)}
+              onDropZoneBoundsChange={(bounds) => {
+                setDropZoneBounds((current) => {
+                  if (!bounds && !current) return null;
+                  if (bounds && current &&
+                      bounds.x === current.x &&
+                      bounds.y === current.y &&
+                      bounds.z === current.z &&
+                      bounds.length === current.length &&
+                      bounds.width === current.width &&
+                      bounds.height === current.height &&
+                      bounds.lineY === current.lineY) {
+                    return current;
+                  }
+                  return bounds;
+                });
+              }}
               onEquipmentDrop={(definitionId, zoneId, placement) => {
                 placeEquipmentInZone(definitionId, zoneId, placement);
                 setDraggingEquipmentId(null);
               }}
               onViewportEquipmentChange={updatePlacedDefinition}
-              onPlacedScaleChange={updatePlacedScale}
-              onPlacedTransformChange={updatePlacedTransform}
+              onMeasuredFootprintsChange={setMeasuredFootprints}
+              onSwapPlaced={swapPlacedWithNeighbor}
             />
-          </Suspense>
         </div>
 
         <div className="stage-toolbar">
@@ -411,11 +722,7 @@ function App() {
                           }}
                           onDragEnd={() => setDraggingEquipmentId(null)}
                           onClick={() => {
-                            setSelectedPlacedId(null);
-                            setEditingPlacedId(null);
-                            setSelectedEquipmentId((current) =>
-                              current === equipment.id ? null : equipment.id
-                            );
+                            placeEquipmentAtNextPosition(equipment.id);
                           }}
                         >
                           <span

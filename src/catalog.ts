@@ -57,10 +57,10 @@ function getMenuAccent(menuType: string) {
 
 function getDefaultEquipmentSize(level: number) {
   if (level > 0) {
-    return { length: 0.56, width: 0.48, height: 0.62 };
+    return { length: 0.45, width: 0.45, height: 0.5 };
   }
 
-  return { length: 0.92, width: 0.76, height: 1.02 };
+  return { length: 0.65, width: 0.65, height: 0.9 };
 }
 
 export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
@@ -83,7 +83,7 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
         color: getMenuAccent(entry["menu type"]),
         model3d: {
           src,
-          scale: entry.level > 0 ? 0.82 : 0.88,
+          scale: 1,
           yOffset: 0
         }
       }

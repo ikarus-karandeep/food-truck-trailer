@@ -64,7 +64,7 @@ function MeasuredDropZoneModel({
       length: size.z,
       width: size.x,
       height: size.y,
-      lineY: transformedBounds.max.y + 0.002
+      lineY: transformedBounds.max.y
     });
   }, [onBoundsChange, transformedDropZone]);
 

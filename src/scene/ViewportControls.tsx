@@ -6,24 +6,28 @@ type ViewportControlsProps = {
   selectedPlaced: PlacementView;
   isEditingSelected: boolean;
   editableEquipmentOptions: EquipmentDefinition[];
-  transformMode: "translate" | "scale";
   measuredFootprint?: MeasuredFootprint;
+  canSwapLeft: boolean;
+  canSwapRight: boolean;
   onDeletePlaced: (placedId: string) => void;
-  onSetTransformMode: (mode: "translate" | "scale") => void;
+  onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
   onToggleViewportEdit: (placedId: string) => void;
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
+  onControlsHoverChange: (hovered: boolean) => void;
 };
 
 export default function ViewportControls({
   selectedPlaced,
   isEditingSelected,
   editableEquipmentOptions,
-  transformMode,
   measuredFootprint,
+  canSwapLeft,
+  canSwapRight,
   onDeletePlaced,
-  onSetTransformMode,
+  onSwapPlaced,
   onToggleViewportEdit,
-  onViewportEquipmentChange
+  onViewportEquipmentChange,
+  onControlsHoverChange
 }: ViewportControlsProps) {
   const { item, definition } = selectedPlaced;
   const controlHeight = (measuredFootprint?.height ?? definition.size.height) + 0.08;
@@ -35,39 +39,62 @@ export default function ViewportControls({
       occlude={false}
       style={{ pointerEvents: "auto" }}
     >
-      <div className="viewport-controls" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="viewport-controls"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerEnter={() => onControlsHoverChange(true)}
+        onPointerLeave={() => onControlsHoverChange(false)}
+        onPointerMove={() => onControlsHoverChange(true)}
+        onMouseEnter={() => onControlsHoverChange(true)}
+        onMouseLeave={() => onControlsHoverChange(false)}
+        onMouseMove={() => onControlsHoverChange(true)}
+      >
         <div className="viewport-actions">
           <button
             className="viewport-icon-button"
-            onClick={() => onSetTransformMode("translate")}
-            title="Move"
-            aria-pressed={transformMode === "translate"}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSwapPlaced(item.id, "left");
+            }}
+            disabled={!canSwapLeft}
+            title="Swap left"
           >
-            MV
+            &larr;
           </button>
           <button
-            className="viewport-icon-button"
-            onClick={() => onSetTransformMode("scale")}
-            title="Scale"
-            aria-pressed={transformMode === "scale"}
-          >
-            SC
-          </button>
-          <button
-            className="viewport-icon-button"
-            onClick={() => onToggleViewportEdit(item.id)}
+            className="viewport-icon-button viewport-edit-button"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onToggleViewportEdit(item.id);
+            }}
             title="Edit"
           >
-            ED
+            &#9998;
           </button>
           <button
-            className="viewport-icon-button viewport-delete-button"
-            onClick={() => onDeletePlaced(item.id)}
-            title="Delete"
+            className="viewport-icon-button"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSwapPlaced(item.id, "right");
+            }}
+            disabled={!canSwapRight}
+            title="Swap right"
           >
-            X
+            &rarr;
           </button>
         </div>
+        <button
+          className="viewport-icon-button viewport-delete-button"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onDeletePlaced(item.id);
+          }}
+          title="Delete"
+          aria-label="Delete"
+        >
+          <span className="viewport-trash-icon" aria-hidden="true" />
+        </button>
         {isEditingSelected ? (
           <div className="viewport-editor">
             <label>

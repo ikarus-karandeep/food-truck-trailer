@@ -745,40 +745,104 @@ button {
 
 .viewport-controls {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   justify-items: center;
+  padding: 30px;
+  margin: -30px;
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  animation: viewport-controls-in 140ms ease forwards;
 }
 
 .viewport-actions {
   display: flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(17, 24, 39, 0.06);
-  box-shadow: 0 20px 38px rgba(17, 24, 39, 0.16);
+  align-items: center;
+  gap: 10px;
 }
 
 .viewport-icon-button {
-  width: 34px;
-  height: 34px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
-  background: #ffffff;
-  color: #111827;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111111;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
-  font-size: 0.78rem;
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.18);
+  font-size: 1.65rem;
   line-height: 1;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.viewport-icon-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.viewport-edit-button {
+  background: rgba(214, 214, 214, 0.96);
+  font-size: 1.35rem;
 }
 
 .viewport-delete-button {
-  color: #991b1b;
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
 }
 
 .viewport-icon-button:disabled,
 .move-actions button:disabled {
-  opacity: 0.45;
+  opacity: 0.32;
   cursor: not-allowed;
+  transform: none;
+}
+
+.viewport-trash-icon {
+  position: relative;
+  width: 16px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 3px 3px;
+}
+
+.viewport-trash-icon::before,
+.viewport-trash-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.viewport-trash-icon::before {
+  top: -6px;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.viewport-trash-icon::after {
+  top: -10px;
+  width: 8px;
+  height: 5px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+}
+
+@keyframes viewport-controls-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .viewport-editor {
