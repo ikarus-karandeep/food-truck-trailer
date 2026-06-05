@@ -26,19 +26,24 @@ export const trailerSizes: TrailerSize[] = [
     accent: "#f8ddd4",
     accentSoft: "rgba(218, 99, 75, 0.1)",
     stageModels: {
-      size: new URL("../models/base/30-hot.glb", import.meta.url).href,
-      "equipment-side": new URL("../models/base/30-hot.glb", import.meta.url).href,
-      "serving-side": new URL("../models/base/30-hot.glb", import.meta.url).href
+      size: new URL("../models/base/30-base.glb", import.meta.url).href,
+      "equipment-side": new URL("../models/base/30-equipment.glb", import.meta.url).href,
+      "serving-side": new URL("../models/base/30-serving.glb", import.meta.url).href
+    },
+    dropZoneModels: {
+      "equipment-side": new URL("../models/base/30-dropzone.glb", import.meta.url)
+        .href
     }
   }
 ];
 
 export const configuratorSteps: Array<{ id: ConfiguratorStepId; label: string }> = [
-  { id: "size", label: "Size" },
-  { id: "equipment-side", label: "equipment side" },
-  { id: "serving-side", label: "serving side" },
-  { id: "addons-utility", label: "Add-ons & utility" },
-  { id: "trailer-customization", label: "trailer customization" }
+  { id: "size", label: "Trailer Type" },
+  { id: "size-specs", label: "Size & Specs" },
+  { id: "equipment-side", label: "Equipment Side" },
+  { id: "serving-side", label: "Serving Side" },
+  { id: "addons-utility", label: "Add-ons & Utility" },
+  { id: "trailer-customization", label: "Trailer Customization" }
 ];
 
 export function buildZones(dropZoneBoundsMap?: Record<string, Partial<Zone>>): Zone[] {

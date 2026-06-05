@@ -77,6 +77,7 @@ export type EquipmentMenuGroup = {
 
 export type ConfiguratorStepId =
   | "size"
+  | "size-specs"
   | "equipment-side"
   | "serving-side"
   | "addons-utility"

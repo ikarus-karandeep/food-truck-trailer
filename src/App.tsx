@@ -479,7 +479,10 @@ function App() {
   }
 
   const activeStageModelSrc = useMemo(
-    () => selectedTrailerSize.stageModels[selectedStepId] ?? null,
+    () =>
+      selectedTrailerSize.stageModels[selectedStepId] ??
+      selectedTrailerSize.stageModels.size ??
+      null,
     [selectedStepId, selectedTrailerSize]
   );
   const activeDropZoneModelSrc = useMemo(
@@ -547,20 +550,27 @@ function App() {
     switch (selectedStepId) {
       case "size":
         return {
-          title: "Size",
-          description: "Select the trailer size you want to configure.",
-          info: "Choose between a compact 16ft build or a full 30ft kitchen layout."
+          title: "Trailer Type",
+          description: "Choose the trailer type based on what you are going to use it for.",
+          info: "This can be changed later based on your equipment selection."
+        };
+      case "size-specs":
+        return {
+          title: "Trailer Size & Specifications",
+          description:
+            "Choose the trailer size to match your needs and equipments you need to keep.",
+          info: "Start from the maximum size and reduce it later to perfectly fit your equipments"
         };
       case "equipment-side":
         return {
-          title: "Equipment Side",
-          description: "Click or drag equipment into the drop zone to build the layout.",
+          title: "Equipment",
+          description: "Choose equipment that match your business needs.",
           info: `Showing ${equipmentCatalog.length} models across ${equipmentSideMenus.length} equipment menus.`
         };
       case "serving-side":
         return {
-          title: "Serving Side",
-          description: "Click or drag equipment onto the serving counter.",
+          title: "Serving",
+          description: "Choose serving-side equipment for your customer-facing layout.",
           info: `Configure the service hatch and customer-facing equipment.`
         };
       case "addons-utility":
@@ -586,14 +596,75 @@ function App() {
 
   function applyTrailerSize(trailerSize: TrailerSize) {
     setSelectedTrailerSizeId(trailerSize.id);
-    setSelectedStepId("size");
     setSelectedEquipmentId(null);
     setSelectedPlacedId(null);
     setEditingPlacedId(null);
   }
 
+  function renderEquipmentCatalogPanel(groups: typeof equipmentSideMenus, badgeLabel: string) {
+    return (
+      <section className="catalog-panel-list">
+        {groups.map((group, index) => (
+          <section key={group.id} className="catalog-category-panel">
+            <div className="catalog-category-heading">
+              <h3>{group.label}</h3>
+              <span>{index === 0 ? badgeLabel : group.side === "serving" ? "Serve" : "Cook"}</span>
+            </div>
+            <div className="catalog-product-grid">
+              {group.items.slice(0, 6).map((equipment) => (
+                <button
+                  key={equipment.id}
+                  className={`catalog-product-card${
+                    selectedEquipmentId === equipment.id ? " active" : ""
+                  }`}
+                  draggable
+                  onDragStart={(event) => {
+                    const dragImage = document.createElement("canvas");
+                    dragImage.width = 1;
+                    dragImage.height = 1;
+                    event.dataTransfer.setData("text/equipment-id", equipment.id);
+                    event.dataTransfer.setData("text/plain", equipment.id);
+                    event.dataTransfer.effectAllowed = "copy";
+                    event.dataTransfer.setDragImage(dragImage, 0, 0);
+                    setSelectedEquipmentId(equipment.id);
+                    setDraggingEquipmentId(equipment.id);
+                    setSelectedPlacedId(null);
+                    setEditingPlacedId(null);
+                  }}
+                  onDragEnd={() => setDraggingEquipmentId(null)}
+                  onClick={() => {
+                    placeEquipmentAtNextPosition(equipment.id);
+                  }}
+                >
+                  <span className="catalog-more-link">more info</span>
+                  <span className="catalog-product-visual" aria-hidden="true">
+                    <span
+                      className="catalog-product-shape"
+                      style={{ "--equipment-color": equipment.color } as CSSProperties}
+                    />
+                  </span>
+                  <strong>$9,999</strong>
+                  <span>{equipment.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </section>
+    );
+  }
+
+  const isSpecsPage = selectedStepId === "size-specs";
+  const isCatalogPage = selectedStepId === "equipment-side" || selectedStepId === "serving-side";
+
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell${selectedStepId === "size" ? " size-page" : ""}${
+        isSpecsPage ? " specs-page" : ""
+      }${
+        isCatalogPage ? " catalog-page" : ""
+      }`}
+    >
       <main className="experience-shell">
         <div className="brand-bar">
           <button className="back-button" type="button" aria-label="Go back">
@@ -601,8 +672,8 @@ function App() {
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
-              <span className="brand-mark">FT</span>
-              <h1>FoodTrailers</h1>
+              <span className="brand-mark" aria-hidden="true" />
+              <h1>Food Trailers</h1>
             </div>
             <p>Powered by Ikarus Delta</p>
           </div>
@@ -638,17 +709,34 @@ function App() {
             />
         </div>
 
-        <div className="stage-toolbar">
-          <button className="toolbar-chip" type="button">
-            {totalItems} items placed
-          </button>
-          <button className="toolbar-chip" type="button">
-            {selectedTrailerSize.label} selected
-          </button>
-          <button className="toolbar-chip wide" type="button">
-            {selectedItemLabel}
-          </button>
-        </div>
+        {selectedStepId === "size" || isSpecsPage || isCatalogPage ? (
+          <div className="stage-toolbar size-view-toolbar">
+            <button className="toolbar-icon-chip" type="button" aria-label="Preview view">
+              <img src="Images/eye.png" className="w-10 h-10" />
+            </button>
+            <button className="toolbar-icon-chip" type="button" aria-label="Gallery view">
+              <img src="Images/env.png" className="w-10 h-10" />
+            </button>
+            <button className="toolbar-icon-chip" type="button" aria-label="Draw view">
+              <img src="Images/measurement.png" className="w-10 h-10" />
+            </button>
+            <button className="view-overview-button" type="button">
+              View In Your Driveway
+            </button>
+          </div>
+        ) : (
+          <div className="stage-toolbar">
+            <button className="toolbar-chip" type="button">
+              {totalItems} items placed
+            </button>
+            <button className="toolbar-chip" type="button">
+              {selectedTrailerSize.label} selected
+            </button>
+            <button className="toolbar-chip wide" type="button">
+              {selectedItemLabel}
+            </button>
+          </div>
+        )}
 
         <nav className="bottom-navigation" aria-label="Configurator steps">
           {configuratorSteps.map((step) => (
@@ -680,6 +768,14 @@ function App() {
             <section className="trailer-card-list">
               {trailerSizes.map((trailerSize) => {
                 const isActive = trailerSize.id === selectedTrailerSize.id;
+                const isLargeTrailer = trailerSize.id === "size-30";
+                const cardTitle = isLargeTrailer ? "Hot Food Service" : "Store & Dispense";
+                const cardDescription = isLargeTrailer
+                  ? "Built for cooking-focused menus with room for heavier kitchen equipment."
+                  : "Ideal for businesses focused on ice-creams, drinks and display.";
+                const features = isLargeTrailer
+                  ? ["High Capacity", "Cooking Ready", "Service Efficient"]
+                  : ["Cold Storage", "Enhanced Insulation", "Energy Efficient"];
 
                 return (
                   <button
@@ -692,10 +788,10 @@ function App() {
                         "--card-accent-soft": trailerSize.accentSoft
                       } as CSSProperties
                     }
-                    onClick={() => applyTrailerSize(trailerSize)}
                   >
                     <div className="trailer-card__meta size-card__meta">
-                      <span className="price-pill">{trailerSize.label}</span>
+                      <span className="price-pill">Base Price : $99,999</span>
+                      <span className="more-link">more info</span>
                     </div>
                     <div className="trailer-card__visual" aria-hidden="true">
                       <div className="trailer-card__mini-stage">
@@ -706,8 +802,16 @@ function App() {
                       </div>
                     </div>
                     <div className="trailer-card__body size-card__body">
-                      <h3>{trailerSize.label}</h3>
-                      <p>{trailerSize.description}</p>
+                      <h3>{cardTitle}</h3>
+                      <p>{cardDescription}</p>
+                    </div>
+                    <div className="trailer-card__features">
+                      <span>{isLargeTrailer ? "Hot service features:" : "Storing specific features:"}</span>
+                      <ul>
+                        {features.map((feature) => (
+                          <li key={feature}>{feature}</li>
+                        ))}
+                      </ul>
                     </div>
                   </button>
                 );
@@ -715,119 +819,92 @@ function App() {
             </section>
           ) : null}
 
-          {selectedStepId === "equipment-side" ? (
-            <section className="control-section">
-              <div className="section-heading">
-                <h3>Equipment Menus</h3>
-                <span>{equipmentSideMenus.length} categories</span>
+          {selectedStepId === "size-specs" ? (
+            <section className="specs-card">
+              <div className="specs-card-heading">
+                <h3>Trailer Size</h3>
               </div>
-              <div className="menu-group-list">
-                {equipmentSideMenus.map((group, index) => (
-                  <details key={group.id} className="menu-group" open={index === 0}>
-                    <summary>
-                      <span>{group.label}</span>
-                      <span>{group.items.length} models</span>
-                    </summary>
-                    <div className="equipment-list compact">
-                      {group.items.map((equipment) => (
-                        <button
-                          key={equipment.id}
-                          className={`equipment-card${
-                            selectedEquipmentId === equipment.id ? " active" : ""
-                          }`}
-                          draggable
-                          onDragStart={(event) => {
-                            const dragImage = document.createElement("canvas");
-                            dragImage.width = 1;
-                            dragImage.height = 1;
-                            event.dataTransfer.setData("text/equipment-id", equipment.id);
-                            event.dataTransfer.setData("text/plain", equipment.id);
-                            event.dataTransfer.effectAllowed = "copy";
-                            event.dataTransfer.setDragImage(dragImage, 0, 0);
-                            setSelectedEquipmentId(equipment.id);
-                            setDraggingEquipmentId(equipment.id);
-                            setSelectedPlacedId(null);
-                            setEditingPlacedId(null);
-                          }}
-                          onDragEnd={() => setDraggingEquipmentId(null)}
-                          onClick={() => {
-                            placeEquipmentAtNextPosition(equipment.id);
-                          }}
-                        >
-                          <span
-                            className="equipment-dot"
-                            style={{ backgroundColor: equipment.color }}
-                          />
-                          <div>
-                            <strong>{equipment.name}</strong>
-                            <p>{equipment.model3d ? equipment.model3d.src.split("/").pop() : ""}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                ))}
+              <div className="size-option-list">
+                {[
+                  {
+                    label: "16ft",
+                    description: "Perfect for focused menus and mobile operations.",
+                    trailerSizeId: "size-16" as TrailerSize["id"],
+                    enabled: true
+                  },
+                  {
+                    label: "18ft",
+                    description: "More room for equipment without sacrificing mobility.",
+                    enabled: false
+                  },
+                  {
+                    label: "20ft",
+                    description: "A versatile size for growing food businesses.",
+                    enabled: false
+                  },
+                  {
+                    label: "22ft",
+                    description: "Balanced workspace for busy service periods.",
+                    enabled: false
+                  },
+                  {
+                    label: "24ft",
+                    description: "Built for larger menus and higher customer demand.",
+                    enabled: false
+                  },
+                  {
+                    label: "26ft",
+                    description: "Extra capacity for expanded kitchen operations.",
+                    enabled: false
+                  },
+                  {
+                    label: "30ft",
+                    description: "Maximum room for high-volume service layouts.",
+                    trailerSizeId: "size-30" as TrailerSize["id"],
+                    enabled: true
+                  }
+                ].map((sizeOption) => {
+                  const isActive =
+                    sizeOption.enabled && sizeOption.trailerSizeId === selectedTrailerSizeId;
+
+                  return (
+                    <button
+                      key={sizeOption.label}
+                      type="button"
+                      className={`size-option-card${isActive ? " active" : ""}`}
+                      disabled={!sizeOption.enabled}
+                      onClick={() => {
+                        if (sizeOption.trailerSizeId) {
+                          applyTrailerSize(
+                            trailerSizes.find(
+                              (trailerSize) => trailerSize.id === sizeOption.trailerSizeId
+                            ) ?? trailerSizes[0]
+                          );
+                        }
+                      }}
+                    >
+                      <span className="size-radio" aria-hidden="true" />
+                      <span className="size-option-copy">
+                        <strong>{sizeOption.label}</strong>
+                        <span>{sizeOption.description}</span>
+                      </span>
+                      <strong className="size-option-price">$99,999</strong>
+                    </button>
+                  );
+                })}
               </div>
             </section>
+          ) : null}
+
+          {selectedStepId === "equipment-side" ? (
+            renderEquipmentCatalogPanel(equipmentSideMenus, "Store")
           ) : null}
 
           {selectedStepId === "serving-side" ? (
-            <section className="control-section">
-              <div className="section-heading">
-                <h3>Serving Side Menus</h3>
-                <span>{servingSideMenus.length} categories</span>
-              </div>
-              <div className="menu-group-list">
-                {servingSideMenus.map((group, index) => (
-                  <details key={group.id} className="menu-group" open={index === 0}>
-                    <summary>
-                      <span>{group.label}</span>
-                      <span>{group.items.length} models</span>
-                    </summary>
-                    <div className="equipment-list compact">
-                      {group.items.map((equipment) => (
-                        <button
-                          key={equipment.id}
-                          className={`equipment-card${
-                            selectedEquipmentId === equipment.id ? " active" : ""
-                          }`}
-                          draggable
-                          onDragStart={(event) => {
-                            const dragImage = document.createElement("canvas");
-                            dragImage.width = 1;
-                            dragImage.height = 1;
-                            event.dataTransfer.setData("text/equipment-id", equipment.id);
-                            event.dataTransfer.setData("text/plain", equipment.id);
-                            event.dataTransfer.effectAllowed = "copy";
-                            event.dataTransfer.setDragImage(dragImage, 0, 0);
-                            setSelectedEquipmentId(equipment.id);
-                            setDraggingEquipmentId(equipment.id);
-                            setSelectedPlacedId(null);
-                            setEditingPlacedId(null);
-                          }}
-                          onDragEnd={() => setDraggingEquipmentId(null)}
-                          onClick={() => {
-                            placeEquipmentAtNextPosition(equipment.id);
-                          }}
-                        >
-                          <span
-                            className="equipment-dot"
-                            style={{ backgroundColor: equipment.color }}
-                          />
-                          <div>
-                            <strong>{equipment.name}</strong>
-                            <p>{equipment.model3d ? equipment.model3d.src.split("/").pop() : ""}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </section>
+            renderEquipmentCatalogPanel(servingSideMenus, "Serve")
           ) : null}
 
-          <details className="advanced-controls">
+          {/* <details className="advanced-controls">
             <summary>
               <span>Advanced Builder Controls</span>
               <span className="advanced-controls__meta">
@@ -906,7 +983,7 @@ function App() {
                 </section>
               ) : null}
             </div>
-          </details>
+          </details> */}
         </div>
 
         <div className="sticky-action-bar">
