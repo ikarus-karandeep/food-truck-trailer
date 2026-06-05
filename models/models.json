@@ -1,52 +1,710 @@
 [
   {
-    "album": "The White Stripes",
-    "year": 1999,
-    "US_peak_chart_post": "-"
+    "glb name": "Blender.glb",
+    "menu type": "Small Appliances",
+    "level": 1,
+    "side": "equipment"
   },
   {
-    "album": "De Stijl",
-    "year": 2000,
-    "US_peak_chart_post": "-"
+    "glb name": "Espresso-Machine-28.glb",
+    "menu type": "Small Appliances",
+    "level": 1,
+    "side": "equipment"
   },
   {
-    "album": "White Blood Cells",
-    "year": 2001,
-    "US_peak_chart_post": 61
+    "glb name": "Espresso-Machine-20.glb",
+    "menu type": "Small Appliances",
+    "level": 1,
+    "side": "equipment"
   },
   {
-    "album": "Elephant",
-    "year": 2003,
-    "US_peak_chart_post": 6
+    "glb name": "Espresso-Machine-16.glb",
+    "menu type": "Small Appliances",
+    "level": 1,
+    "side": "equipment"
   },
   {
-    "album": "Get Behind Me Satan",
-    "year": 2005,
-    "US_peak_chart_post": 3
+    "glb name": "Gas-Tandoor-Oven-32.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
   },
   {
-    "album": "Icky Thump",
-    "year": 2007,
-    "US_peak_chart_post": 2
+    "glb name": "Gas-Tandoor-Oven-28.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
   },
   {
-    "album": "Under Great White Northern Lights",
-    "year": 2010,
-    "US_peak_chart_post": 11
+    "glb name": "Rice-Cooker.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
   },
   {
-    "album": "Live in Mississippi",
-    "year": 2011,
-    "US_peak_chart_post": "-"
+    "glb name": "Salamander-Broiler-48.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
   },
   {
-    "album": "Live at the Gold Dollar",
-    "year": 2012,
-    "US_peak_chart_post": "-"
+    "glb name": "Salamander-Broiler-36.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
   },
   {
-    "album": "Nine Miles from the White City",
-    "year": 2013,
-    "US_peak_chart_post": "-"
+    "glb name": "Salamander-Broiler-24.glb",
+    "menu type": "Specialized Cooking",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Heated-Cabinet-18.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Heated-Cabinet-9.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Hot-Food-Tables-4.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Hot-Food-Tables-5.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Hot-Food-Tables-3.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Hot-Food-Tables-2.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Proofer-Half-Size.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Proofer-Full-Size.glb",
+    "menu type": "Hot Holding",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Pizza-Oven-4-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Bake-Oven-4-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Pizza-Oven-2-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Pizza-Oven-1-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Conveyor-Pizza-Oven.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Convection-Oven-Single-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Convection-Oven-Double-Deck.glb",
+    "menu type": "Commercial Ovens",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Deep-Fat-Fryer-75.glb",
+    "menu type": "Fryers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Deep-Fat-Fryer-25.glb",
+    "menu type": "Fryers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Deep-Fat-Fryer-50.glb",
+    "menu type": "Fryers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Shawarma-Vertical-Broiler.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-72.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-60.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-48.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-36.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-30.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-24.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-18.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Radiant-Broiler-12.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-72.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-60.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-48.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-36.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-24.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual-Griddle-18.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Manual Griddle-12.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Step-Up-Hot-Plate-48.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Step-Up-Hot-Plate-36.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Step-Up-Hot-Plate-24.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Step-Up-Hot-Plate-12.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Hot-Plates-48.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Hot-Plates-36.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Hot-Plates-24.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Hot-Plates-12.glb",
+    "menu type": "Griddles, Boilers & Hot Plates",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Stock-Pot.glb",
+    "menu type": "Stock Pot & Wok Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Wok-Range.glb",
+    "menu type": "Stock Pot & Wok Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-72-06B-36G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-00B-60G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-10B-00G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-08B-12G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-06B-24G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-00B-04G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-60-02B-48G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-48-00B-48G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-48-08B-00G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-48-06B-12G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-48-04B-24G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-48-02B-36G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-36-00B-36G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-36-06B-00G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-36-04B-00G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-36-04B-12G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-36-02B-24G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-24-00B-24G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-24-04B-00G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Gas-Restaurant-Range-24-02B-12G.glb",
+    "menu type": "Restaurant Ranges",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Soft-Serve-Machine-16.glb",
+    "menu type": "Ice Cream Equipment",
+    "level": 1,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Soft-Serve-Machine-22.glb",
+    "menu type": "Ice Cream Equipment",
+    "level": 1,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Ice-Shaver.glb",
+    "menu type": "Ice Cream Equipment",
+    "level": 1,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Ice-Maker-30.glb",
+    "menu type": "Ice Cream Equipment",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Ice-Maker-24.glb",
+    "menu type": "Ice Cream Equipment",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Pizza-Prep-Table-67.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Pizza-Prep-Table-60.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Pizza-Prep-Table-44.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Sandwich-Prep-Refrigerator-72.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Sandwich-Prep-Refrigerator-60.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Sandwich-Prep-Refrigerator-48.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Sandwich-Prep-Refrigerator-36.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Sandwich-Prep-Refrigerator-27.glb",
+    "menu type": "Refrigerated Prep Tables",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-82-86.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-82-84.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-82.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-79.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-79-86.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-72.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-52.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-52-60.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-48.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chef-Base-36.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chest-Freezer-60.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chest-Freezer-40.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Chest-Freezer-37.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Freezer-60.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Freezer-48.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Freezer-27.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Freezer-36.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Refrigerator-72.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Refrigerator-60.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Refrigerator-48.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Refrigerator-36.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Undercounter-Refrigerator-27.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Reach-in-Freezer-54.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Reach-in-Freezer-27.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Reach-in-Refrigerator-54.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Reach-in-Refrigerator-27.glb",
+    "menu type": "Refrigerators & Freezers",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Espresso Grinder.glb",
+    "menu type": "Small Appliances",
+    "level": 1,
+    "side": "equipment"
+  },
+  {
+    "glb name": "One-Compartment-Sink.glb",
+    "menu type": "Sinks",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "Three-Compartment-Sink.glb",
+    "menu type": "Sinks",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "One-Compartment-Sink-Right.glb",
+    "menu type": "Sinks",
+    "level": 0,
+    "side": "equipment"
+  },
+  {
+    "glb name": "One-Compartment-Sink-Left.glb",
+    "menu type": "Sinks",
+    "level": 0,
+    "side": "equipment"
   }
 ]
