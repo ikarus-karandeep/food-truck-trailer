@@ -63,19 +63,33 @@ function ModeledEquipmentVisual({
       Math.abs(normalizedRotation - Math.PI / 2) < 0.001 ||
       Math.abs(normalizedRotation - (Math.PI * 3) / 2) < 0.001;
 
+    // Use the defined equipment height as the reference for vertical alignment
+    const targetHeight = definition.size.height;
+    const midPointY = targetHeight / 2;
+    const actualHeight = scaledSize.y;
+
+    // Calculate Y offset to center the model if it fits, otherwise keep bottom at 0
+    // This prevents sinking while maintaining centering for smaller models
+    const yOffset = actualHeight <= targetHeight
+      ? midPointY - center.y * appliedScale
+      : -bounds.min.y * appliedScale;
+
     return {
       offset: {
         x: -center.x * appliedScale,
-        y: -bounds.min.y * appliedScale + (model.yOffset ?? 0) * scaleMultiplier,
+        y: yOffset + (model.yOffset ?? 0) * scaleMultiplier,
         z: -center.z * appliedScale
       },
       footprint: {
-        width: quarterTurn ? scaledSize.z : scaledSize.x,
-        length: quarterTurn ? scaledSize.x : scaledSize.z,
-        height: scaledSize.y
-      }
+        width: (quarterTurn ? scaledSize.z : scaledSize.x),
+        length: (quarterTurn ? scaledSize.x : scaledSize.z),
+        height: Math.max(actualHeight, targetHeight)
+      },
+      midPointY: actualHeight <= targetHeight ? midPointY : (actualHeight / 2),
+      actualHeight,
+      targetHeight
     };
-  }, [model.rotationY, model.scale, model.yOffset, scaleMultiplier, scene]);
+  }, [model.rotationY, model.scale, model.yOffset, scaleMultiplier, scene, definition.size.height]);
 
   useEffect(() => {
     if (!onFootprintChange) {
@@ -85,8 +99,30 @@ function ModeledEquipmentVisual({
     onFootprintChange(metrics.footprint);
   }, [metrics.footprint, onFootprintChange]);
 
+  const supportHeight = Math.max(0, metrics.midPointY - metrics.actualHeight / 2);
+
   return (
     <group>
+      {/* Central Point/Box */}
+      <mesh position={[0, metrics.midPointY, 0]}>
+        <boxGeometry args={[0.02, 0.02, 0.02]} />
+        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
+      </mesh>
+
+      {/* Support Box (added below if model is smaller) */}
+      {supportHeight > 0.001 && (
+        <mesh position={[0, supportHeight / 2, 0]}>
+          <boxGeometry
+            args={[
+              metrics.footprint.width + 0.005, // Slightly oversized to ensure overlap
+              supportHeight,
+              metrics.footprint.length + 0.005
+            ]}
+          />
+          <meshStandardMaterial color="#333333" metalness={0.2} roughness={0.8} />
+        </mesh>
+      )}
+
       <group
         scale={model.scale * scaleMultiplier}
         position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}

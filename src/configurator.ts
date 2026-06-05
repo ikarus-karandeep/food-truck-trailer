@@ -40,32 +40,37 @@ export const configuratorSteps: Array<{ id: ConfiguratorStepId; label: string }>
   { id: "trailer-customization", label: "trailer customization" }
 ];
 
-export function buildZones(dropZoneBounds?: Partial<Zone>): Zone[] {
+export function buildZones(dropZoneBoundsMap?: Record<string, Partial<Zone>>): Zone[] {
+  const servingLineY =
+    dropZoneBoundsMap?.["serving-drop"]?.lineY ??
+    dropZoneBoundsMap?.["serving-drop"]?.y ??
+    0.535;
+
   const zones: Zone[] = [
     {
       id: "equipment-drop",
       name: "Equipment Drop Zone",
       color: "#ffcb74",
-      x: dropZoneBounds?.x ?? 0,
-      y: dropZoneBounds?.y ?? FLOOR_Y,
-      z: dropZoneBounds?.z ?? 0,
-      length: dropZoneBounds?.length ?? 2.2,
-      width: dropZoneBounds?.width ?? 0.9,
-      height: dropZoneBounds?.height ?? 2.5,
-      lineY: dropZoneBounds?.lineY ?? FLOOR_Y,
+      x: dropZoneBoundsMap?.["equipment-drop"]?.x ?? 0,
+      y: dropZoneBoundsMap?.["equipment-drop"]?.y ?? FLOOR_Y,
+      z: dropZoneBoundsMap?.["equipment-drop"]?.z ?? 0,
+      length: dropZoneBoundsMap?.["equipment-drop"]?.length ?? 2.2,
+      width: dropZoneBoundsMap?.["equipment-drop"]?.width ?? 0.9,
+      height: dropZoneBoundsMap?.["equipment-drop"]?.height ?? 2.5,
+      lineY: dropZoneBoundsMap?.["equipment-drop"]?.lineY ?? FLOOR_Y,
       capacity: Number.POSITIVE_INFINITY
     },
     {
       id: "serving-drop" as ZoneId,
       name: "Serving Drop Zone",
       color: "#78d4c2",
-      x: dropZoneBounds?.x ?? 1.8,
-      y: dropZoneBounds?.y ?? FLOOR_Y,
-      z: dropZoneBounds?.z ?? 0,
-      length: dropZoneBounds?.length ?? 2.2,
-      width: dropZoneBounds?.width ?? 0.9,
-      height: dropZoneBounds?.height ?? 2.5,
-      lineY: dropZoneBounds?.lineY ?? FLOOR_Y,
+      x: dropZoneBoundsMap?.["serving-drop"]?.x ?? -0.27,
+      y: dropZoneBoundsMap?.["serving-drop"]?.y ?? 0.535,
+      z: dropZoneBoundsMap?.["serving-drop"]?.z ?? -0.064,
+      length: dropZoneBoundsMap?.["serving-drop"]?.length ?? 0.59,
+      width: dropZoneBoundsMap?.["serving-drop"]?.width ?? 3.34,
+      height: dropZoneBoundsMap?.["serving-drop"]?.height ?? 2.5,
+      lineY: servingLineY,
       capacity: Number.POSITIVE_INFINITY
     }
   ];

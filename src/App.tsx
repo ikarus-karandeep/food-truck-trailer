@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type CSSProperties } from "react";
+import { useMemo, useState, useEffect, useCallback, type CSSProperties } from "react";
 import { Vector3 } from "three";
 import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
 import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
@@ -26,18 +26,14 @@ function App() {
   const [draggingEquipmentId, setDraggingEquipmentId] = useState<string | null>(null);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
   const [editingPlacedId, setEditingPlacedId] = useState<string | null>(null);
-  const [dropZoneBounds, setDropZoneBounds] = useState<Partial<Zone> | null>(null);
+  const [dropZoneBoundsMap, setDropZoneBoundsMap] = useState<Record<string, Partial<Zone>>>({});
   const [measuredFootprints, setMeasuredFootprints] = useState<
     Record<string, MeasuredFootprint>
   >({});
 
-  const zones = useMemo(() => {
-    const allZones = buildZones(
-      selectedStepId === "equipment-side" || selectedStepId === "serving-side"
-        ? dropZoneBounds ?? undefined
-        : undefined
-    );
+  const allZones = useMemo(() => buildZones(dropZoneBoundsMap), [dropZoneBoundsMap]);
 
+  const zones = useMemo(() => {
     if (selectedStepId === "equipment-side") {
       return allZones.filter((z) => z.id === "equipment-drop");
     }
@@ -45,10 +41,11 @@ function App() {
       return allZones.filter((z) => z.id === "serving-drop");
     }
     return [];
-  }, [dropZoneBounds, selectedStepId]);
+  }, [allZones, selectedStepId]);
+
   const zoneMap = useMemo(
-    () => Object.fromEntries(zones.map((zone) => [zone.id, zone])) as Record<ZoneId, Zone>,
-    [zones]
+    () => Object.fromEntries(allZones.map((zone) => [zone.id, zone])) as Record<ZoneId, Zone>,
+    [allZones]
   );
   const equipmentMap = useMemo(
     () =>
@@ -141,7 +138,7 @@ function App() {
 
     let cursor = axisMax;
     const updatedPositions = new Map<string, number>();
-    const PADDING = 0.01; // 1cm gap between models
+    const PADDING = 0; // models sit flush (EquipmentVisual already deducts 0.01 from footprint)
 
     for (const peer of [...peers].reverse()) {
       const center = cursor - peer.halfSize;
@@ -257,10 +254,12 @@ function App() {
       return;
     }
 
+    // Only look for support items within the current active zone
+    const zonePlacements = placements.filter(({ zone: placedZone }) => placedZone.id === zone.id);
     const lowerLevelPlacement =
       definition.level > 0
-        ? placements.find(({ definition: placedDefinition, placement }) => {
-            const alreadySupportsSameLevel = placements.some(
+        ? zonePlacements.find(({ definition: placedDefinition, placement }) => {
+            const alreadySupportsSameLevel = zonePlacements.some(
               ({ definition: stackedDefinition, placement: stackedPlacement }) =>
                 stackedDefinition.level === definition.level &&
                 stackedPlacement.x === placement.x &&
@@ -269,7 +268,7 @@ function App() {
 
             return placedDefinition.level === definition.level - 1 && !alreadySupportsSameLevel;
           }) ??
-          placements.find(
+          zonePlacements.find(
             ({ definition: placedDefinition }) => placedDefinition.level === definition.level - 1
           ) ??
           null
@@ -278,9 +277,9 @@ function App() {
     if (definition.level > 0 && lowerLevelPlacement) {
       const createdId = `${definitionId}-${crypto.randomUUID()}`;
       const lowerScale = lowerLevelPlacement.placement.scale;
-      const lowerHeight =
-        measuredFootprints[lowerLevelPlacement.item.id]?.height ??
-        lowerLevelPlacement.definition.size.height;
+      // Use the logical slot height (definition.size.height) — NOT the raw 3D bounding-box
+      // height — so level-1 items land just above the counter surface rather than at ceiling.
+      const lowerHeight = lowerLevelPlacement.definition.size.height;
 
       setPlaced((current) => [
         ...current,
@@ -290,7 +289,7 @@ function App() {
           zoneId: lowerLevelPlacement.zone.id,
           manualPlacement: {
             x: lowerLevelPlacement.placement.x,
-            y: lowerLevelPlacement.placement.y + lowerHeight * lowerScale + 0.01,
+            y: lowerLevelPlacement.placement.y + lowerHeight * lowerScale,
             z: lowerLevelPlacement.placement.z,
             rotationY: lowerLevelPlacement.placement.rotationY
           }
@@ -487,6 +486,37 @@ function App() {
     () => selectedTrailerSize.dropZoneModels?.[selectedStepId] ?? null,
     [selectedStepId, selectedTrailerSize]
   );
+
+  // Stable callback so DropZoneModel's useEffect doesn't re-fire every render
+  const handleDropZoneBoundsChange = useCallback(
+    (bounds: Pick<Zone, "x" | "y" | "z" | "length" | "width" | "height" | "lineY"> | null) => {
+      const currentZoneId =
+        selectedStepId === "equipment-side" ? "equipment-drop" : "serving-drop";
+
+      setDropZoneBoundsMap((current) => {
+        const currentBounds = current[currentZoneId];
+        if (!bounds && !currentBounds) return current;
+        if (
+          bounds &&
+          currentBounds &&
+          bounds.x === currentBounds.x &&
+          bounds.y === currentBounds.y &&
+          bounds.z === currentBounds.z &&
+          bounds.length === currentBounds.length &&
+          bounds.width === currentBounds.width &&
+          bounds.height === currentBounds.height &&
+          bounds.lineY === currentBounds.lineY
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          [currentZoneId]: bounds ?? {}
+        };
+      });
+    },
+    [selectedStepId]
+  );
   const draggingEquipment = useMemo(
     () => (draggingEquipmentId ? equipmentMap[draggingEquipmentId] ?? null : null),
     [draggingEquipmentId, equipmentMap]
@@ -496,6 +526,11 @@ function App() {
   const selectedItemLabel = selectedPlaced?.definition.name ?? "No item selected";
   const equipmentSideMenus = useMemo(
     () => equipmentMenuGroups.filter((group) => group.side === "equipment"),
+    []
+  );
+
+  const servingSideMenus = useMemo(
+    () => equipmentMenuGroups.filter((group) => group.side === "serving"),
     []
   );
 
@@ -570,7 +605,7 @@ function App() {
               dropZoneModelSrc={activeDropZoneModelSrc}
               draggingEquipment={draggingEquipment}
               zones={zones}
-              placements={placements}
+              placements={placements.filter((p) => p.zone.id === (selectedStepId === "equipment-side" ? "equipment-drop" : "serving-drop"))}
               editingPlacedId={editingPlacedId}
               editableEquipmentOptions={editableEquipmentOptions}
               onPlacedSelect={(id) => {
@@ -583,22 +618,7 @@ function App() {
               onToggleViewportEdit={(id) =>
                 setEditingPlacedId((current) => (current === id ? null : id))
               }
-              onDropZoneBoundsChange={(bounds) => {
-                setDropZoneBounds((current) => {
-                  if (!bounds && !current) return null;
-                  if (bounds && current &&
-                      bounds.x === current.x &&
-                      bounds.y === current.y &&
-                      bounds.z === current.z &&
-                      bounds.length === current.length &&
-                      bounds.width === current.width &&
-                      bounds.height === current.height &&
-                      bounds.lineY === current.lineY) {
-                    return current;
-                  }
-                  return bounds;
-                });
-              }}
+              onDropZoneBoundsChange={handleDropZoneBoundsChange}
               onEquipmentDrop={(definitionId, zoneId, placement) => {
                 placeEquipmentInZone(definitionId, zoneId, placement);
                 setDraggingEquipmentId(null);
@@ -694,6 +714,62 @@ function App() {
               </div>
               <div className="menu-group-list">
                 {equipmentSideMenus.map((group, index) => (
+                  <details key={group.id} className="menu-group" open={index === 0}>
+                    <summary>
+                      <span>{group.label}</span>
+                      <span>{group.items.length} models</span>
+                    </summary>
+                    <div className="equipment-list compact">
+                      {group.items.map((equipment) => (
+                        <button
+                          key={equipment.id}
+                          className={`equipment-card${
+                            selectedEquipmentId === equipment.id ? " active" : ""
+                          }`}
+                          draggable
+                          onDragStart={(event) => {
+                            const dragImage = document.createElement("canvas");
+                            dragImage.width = 1;
+                            dragImage.height = 1;
+                            event.dataTransfer.setData("text/equipment-id", equipment.id);
+                            event.dataTransfer.setData("text/plain", equipment.id);
+                            event.dataTransfer.effectAllowed = "copy";
+                            event.dataTransfer.setDragImage(dragImage, 0, 0);
+                            setSelectedEquipmentId(equipment.id);
+                            setDraggingEquipmentId(equipment.id);
+                            setSelectedPlacedId(null);
+                            setEditingPlacedId(null);
+                          }}
+                          onDragEnd={() => setDraggingEquipmentId(null)}
+                          onClick={() => {
+                            placeEquipmentAtNextPosition(equipment.id);
+                          }}
+                        >
+                          <span
+                            className="equipment-dot"
+                            style={{ backgroundColor: equipment.color }}
+                          />
+                          <div>
+                            <strong>{equipment.name}</strong>
+                            <p>{equipment.model3d ? equipment.model3d.src.split("/").pop() : ""}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {selectedStepId === "serving-side" ? (
+            <section className="control-section">
+              <div className="section-heading">
+                <h3>Serving Side Menus</h3>
+                <span>{servingSideMenus.length} categories</span>
+              </div>
+              <div className="menu-group-list">
+                {servingSideMenus.map((group, index) => (
                   <details key={group.id} className="menu-group" open={index === 0}>
                     <summary>
                       <span>{group.label}</span>

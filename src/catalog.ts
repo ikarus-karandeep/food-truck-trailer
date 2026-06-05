@@ -64,7 +64,7 @@ function getDefaultEquipmentSize(level: number) {
 }
 
 export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
-  .filter((entry) => entry.side === "equipment")
+  .filter((entry) => entry.side === "equipment" || entry.side === "serving")
   .flatMap((entry) => {
     const src = glbAssetMap[entry["glb name"]];
 
@@ -90,7 +90,7 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
     ];
   });
 
-export const equipmentMenuGroups: EquipmentMenuGroup[] = Array.from(
+const generatedMenuGroups: EquipmentMenuGroup[] = Array.from(
   equipmentCatalog.reduce((groups, equipment) => {
     const key = `${equipment.side}:${equipment.menuType}`;
     const current = groups.get(key);
@@ -114,3 +114,35 @@ export const equipmentMenuGroups: EquipmentMenuGroup[] = Array.from(
     items: [...group.items].sort((a, b) => a.name.localeCompare(b.name))
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
+
+const servingSideMenuGroups: EquipmentMenuGroup[] = [
+  {
+    id: "serving-beverage-small-appliances",
+    label: "Beverage & Small Appliances",
+    side: "serving",
+    items: equipmentCatalog
+      .filter((equipment) => equipment.menuType === "Small Appliances")
+      .sort((a, b) => a.name.localeCompare(b.name))
+  },
+  {
+    id: "serving-1-compartment-sinks",
+    label: "1-Compartment Sinks",
+    side: "serving",
+    items: equipmentCatalog
+      .filter((equipment) => equipment.menuType === "1-Compartment Sinks")
+      .sort((a, b) => a.name.localeCompare(b.name))
+  },
+  {
+    id: "serving-3-compartment-sinks",
+    label: "3-Compartment Sinks",
+    side: "serving",
+    items: equipmentCatalog
+      .filter((equipment) => equipment.menuType === "3-Compartment Sinks")
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+];
+
+export const equipmentMenuGroups: EquipmentMenuGroup[] = [
+  ...generatedMenuGroups.filter((group) => group.side !== "serving"),
+  ...servingSideMenuGroups
+];

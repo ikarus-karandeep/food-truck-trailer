@@ -122,17 +122,19 @@ export function resolveNonIntersectingPlacement(
     return null;
   }
 
+  const rotationY = zone.id === "serving-drop" ? Math.PI : 0;
+
   return axis.horizontal
     ? {
         x: zone.x,
         y: zone.lineY,
         z: nearestFit.center,
-        rotationY: 0
+        rotationY
       }
     : {
         x: nearestFit.center,
         y: zone.lineY,
         z: zone.z,
-        rotationY: 0
+        rotationY
       };
 }
