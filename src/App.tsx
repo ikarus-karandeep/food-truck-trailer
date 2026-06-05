@@ -495,7 +495,16 @@ function App() {
 
       setDropZoneBoundsMap((current) => {
         const currentBounds = current[currentZoneId];
-        if (!bounds && !currentBounds) return current;
+        if (!bounds) {
+          if (!currentBounds || Object.keys(currentBounds).length === 0) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [currentZoneId]: {}
+          };
+        }
         if (
           bounds &&
           currentBounds &&

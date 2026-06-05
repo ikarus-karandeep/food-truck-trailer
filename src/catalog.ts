@@ -129,7 +129,7 @@ const servingSideMenuGroups: EquipmentMenuGroup[] = [
     label: "1-Compartment Sinks",
     side: "serving",
     items: equipmentCatalog
-      .filter((equipment) => equipment.menuType === "1-Compartment Sinks")
+      .filter((equipment) => equipment.menuType === "One-Sinks")
       .sort((a, b) => a.name.localeCompare(b.name))
   },
   {
@@ -137,7 +137,7 @@ const servingSideMenuGroups: EquipmentMenuGroup[] = [
     label: "3-Compartment Sinks",
     side: "serving",
     items: equipmentCatalog
-      .filter((equipment) => equipment.menuType === "3-Compartment Sinks")
+      .filter((equipment) => equipment.menuType === "Three-Sinks")
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 ];

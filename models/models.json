@@ -685,25 +685,25 @@
   },
   {
     "glb name": "One-Compartment-Sink.glb",
-    "menu type": "Sinks",
+    "menu type": "One-Sinks",
     "level": 0,
     "side": "equipment"
   },
   {
     "glb name": "Three-Compartment-Sink.glb",
-    "menu type": "Sinks",
+    "menu type": "Three-Sinks",
     "level": 0,
     "side": "equipment"
   },
   {
     "glb name": "One-Compartment-Sink-Right.glb",
-    "menu type": "Sinks",
+    "menu type": "One-Sinks",
     "level": 0,
     "side": "equipment"
   },
   {
     "glb name": "One-Compartment-Sink-Left.glb",
-    "menu type": "Sinks",
+    "menu type": "One-Sinks",
     "level": 0,
     "side": "equipment"
   }

@@ -27,6 +27,7 @@ export const trailerSizes: TrailerSize[] = [
     accentSoft: "rgba(218, 99, 75, 0.1)",
     stageModels: {
       size: new URL("../models/base/30-hot.glb", import.meta.url).href,
+      "equipment-side": new URL("../models/base/30-hot.glb", import.meta.url).href,
       "serving-side": new URL("../models/base/30-hot.glb", import.meta.url).href
     }
   }
