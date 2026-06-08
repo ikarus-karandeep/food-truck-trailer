@@ -33,7 +33,7 @@ function MeasuredDropZoneModel({
       scale,
       offset: {
         x: -referenceCenter.x * scale,
-        y: -referenceBounds.min.y * scale,
+        y: -referenceCenter.y * scale,
         z: -referenceCenter.z * scale
       }
     };

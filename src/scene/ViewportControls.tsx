@@ -61,7 +61,7 @@ export default function ViewportControls({
       >
         <div className="viewport-actions">
           <button
-            className="viewport-icon-button"
+            className="viewport-icon-button viewport-icon-next"
             onPointerDown={(event) => {
               event.stopPropagation();
               onSwapPlaced(item.id, resolveVisualDirection("left"));
@@ -69,7 +69,7 @@ export default function ViewportControls({
             disabled={!visualCanSwapLeft}
             title="Swap left"
           >
-            &larr;
+            <img src="/images/Previous.png" />
           </button>
           <button
             className="viewport-icon-button viewport-edit-button"
@@ -82,7 +82,7 @@ export default function ViewportControls({
             &#9998;
           </button>
           <button
-            className="viewport-icon-button"
+            className="viewport-icon-button viewport-icon-swapnext"
             onPointerDown={(event) => {
               event.stopPropagation();
               onSwapPlaced(item.id, resolveVisualDirection("right"));
@@ -90,7 +90,7 @@ export default function ViewportControls({
             disabled={!visualCanSwapRight}
             title="Swap right"
           >
-            &rarr;
+            <img src="/images/Previous.png" />
           </button>
         </div>
         <button
@@ -102,7 +102,7 @@ export default function ViewportControls({
           title="Delete"
           aria-label="Delete"
         >
-          <span className="viewport-trash-icon" aria-hidden="true" />
+          <img src="/images/Delete.png" />
         </button>
         {isEditingSelected ? (
           <div className="viewport-editor">

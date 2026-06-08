@@ -19,6 +19,8 @@ import BuilderScene from "./BuilderScene";
 
 function App() {
   const [selectedStepId, setSelectedStepId] = useState<ConfiguratorStepId>("size");
+  const [showBuildSummary, setShowBuildSummary] = useState(false);
+  const [buildSummaryTab, setBuildSummaryTab] = useState<number>(3);
   const [selectedTrailerSizeId, setSelectedTrailerSizeId] =
     useState<TrailerSize["id"]>("size-16");
   const [placed, setPlaced] = useState<PlacedEquipment[]>([]);
@@ -151,14 +153,20 @@ function App() {
       if (newAxisPos === undefined) return item;
 
       const currentPlacement = item.manualPlacement;
+      // Use zone defaults for dimensions we are not compacting along
+      const baseX = currentPlacement?.x ?? zone.x;
+      const baseY = currentPlacement?.y ?? zone.lineY;
+      const baseZ = currentPlacement?.z ?? zone.z;
+      const baseRotation = currentPlacement?.rotationY ?? 0;
+
       return {
         ...item,
-        manualPlacement: currentPlacement
-          ? {
-              ...currentPlacement,
-              ...(horizontal ? { z: newAxisPos } : { x: newAxisPos })
-            }
-          : undefined
+        manualPlacement: {
+          x: horizontal ? baseX : newAxisPos,
+          y: baseY,
+          z: horizontal ? newAxisPos : baseZ,
+          rotationY: baseRotation
+        }
       };
     });
   }
@@ -210,6 +218,17 @@ function App() {
     });
     setSelectedPlacedId((current) => (current === id ? null : current));
     setEditingPlacedId((current) => (current === id ? null : current));
+  }
+
+  function removeOnePlaced(definitionId: string) {
+    setPlaced((current) => {
+      const reversed = [...current].reverse();
+      const itemToRemove = reversed.find(i => i.definitionId === definitionId);
+      if (!itemToRemove) return current;
+
+      const remaining = current.filter(i => i.id !== itemToRemove.id);
+      return compactPlacedItems(remaining, itemToRemove);
+    });
   }
 
   function placeEquipmentInZone(
@@ -599,6 +618,14 @@ function App() {
     setSelectedEquipmentId(null);
     setSelectedPlacedId(null);
     setEditingPlacedId(null);
+    // Reset all manual positions so items re-snap to the new zone's floor/center
+    setPlaced((current) =>
+      current.map((item) => ({
+        ...item,
+        manualPlacement: undefined,
+        manualScale: undefined
+      }))
+    );
   }
 
   function renderEquipmentCatalogPanel(groups: typeof equipmentSideMenus, badgeLabel: string) {
@@ -611,12 +638,15 @@ function App() {
               <span>{index === 0 ? badgeLabel : group.side === "serving" ? "Serve" : "Cook"}</span>
             </div>
             <div className="catalog-product-grid">
-              {group.items.slice(0, 6).map((equipment) => (
-                <button
+              {group.items.slice(0, 6).map((equipment) => {
+                const placedCount = placed.filter(p => p.definitionId === equipment.id).length;
+                return (
+                <div
                   key={equipment.id}
                   className={`catalog-product-card${
                     selectedEquipmentId === equipment.id ? " active" : ""
                   }`}
+                  style={{ "--equipment-color": equipment.color } as CSSProperties}
                   draggable
                   onDragStart={(event) => {
                     const dragImage = document.createElement("canvas");
@@ -645,8 +675,14 @@ function App() {
                   </span>
                   <strong>$9,999</strong>
                   <span>{equipment.name}</span>
-                </button>
-              ))}
+
+                  <div className="quantity-controls" onClick={e => e.stopPropagation()}>
+                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="/images/Minus.png" /> </button>
+                    <span className="quantity-value">{placedCount}</span>
+                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="/images/Plus.png" /></button>
+                  </div>
+                </div>
+              )})}
             </div>
           </section>
         ))}
@@ -667,8 +703,8 @@ function App() {
     >
       <main className="experience-shell">
         <div className="brand-bar">
-          <button className="back-button" type="button" aria-label="Go back">
-            <span aria-hidden="true">&larr;</span>
+          <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
+            <img src="/images/Back.png" />
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
@@ -681,6 +717,7 @@ function App() {
 
         <div className="experience-stage">
             <BuilderScene
+              selectedStepId={selectedStepId}
               activeStageModelSrc={activeStageModelSrc}
               dropZoneModelSrc={activeDropZoneModelSrc}
               draggingEquipment={draggingEquipment}
@@ -753,7 +790,7 @@ function App() {
       </main>
 
       <aside className="inspector-panel">
-        <div className="inspector-scroll">
+        <div className="inspector-header">
           <section className="title-block">
             <h2>{inspectorCopy.title}</h2>
             <p>{inspectorCopy.description}</p>
@@ -763,7 +800,8 @@ function App() {
             <span className="info-pill__icon">i</span>
             <p>{inspectorCopy.info}</p>
           </section>
-
+        </div>
+        <div className="inspector-scroll">
           {selectedStepId === "size" ? (
             <section className="trailer-card-list">
               {trailerSizes.map((trailerSize) => {
@@ -987,14 +1025,107 @@ function App() {
         </div>
 
         <div className="sticky-action-bar">
-          <button type="button" className="summary-button">
+          <button type="button" className="summary-button" onClick={() => setShowBuildSummary(true)}>
             Build Summary
           </button>
           <button type="button" className="icon-action-button" aria-label="Save build">
-            <span aria-hidden="true">[]</span>
+            <img src="/images/Save.png" className="icon-action-button-img"/>
           </button>
         </div>
       </aside>
+
+      {showBuildSummary ? (
+        <div className="build-summary-overlay" onClick={() => setShowBuildSummary(false)}>
+          <div className="build-summary-modal" onClick={e => e.stopPropagation()}>
+            <div className="summary-header">
+              <h2>Your Build</h2>
+              <button className="summary-close" onClick={() => setShowBuildSummary(false)}>✕</button>
+            </div>
+            
+            <div className="summary-trailer-card">
+              <div className="summary-trailer-visual">
+                <div className="trailer-card__mini-stage" style={{ transform: "scale(0.55) translate(-10%, 10%)" }}>
+                  <span className="mini-trailer-body" />
+                  <span className="mini-trailer-roof" />
+                  <span className="mini-trailer-wheel wheel-a" />
+                  <span className="mini-trailer-wheel wheel-b" />
+                </div>
+              </div>
+              <div className="summary-trailer-info">
+                 <span className="summary-trailer-type">{selectedTrailerSize.id === "size-30" ? "HOT FOOD SERVICE TRAILER" : "CONCESSION TRAILER"}</span>
+                 <strong className="summary-trailer-price">${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
+              </div>
+            </div>
+
+            <nav className="summary-tabs">
+              {[ {id:1, label:"1. TYPE"}, {id:2, label:"2. SIZE"}, {id:3, label:"3. EQUIPMENTS"}, {id:4, label:"4. ADDITIONAL"} ].map(tab => (
+                 <button 
+                   key={tab.id} 
+                   className={buildSummaryTab === tab.id ? "active" : ""}
+                   onClick={() => setBuildSummaryTab(tab.id)}
+                 >
+                   {tab.label}
+                 </button>
+              ))}
+            </nav>
+
+            <div className="summary-tab-content">
+              {buildSummaryTab === 3 && (
+                <div className="summary-equipments">
+                  {placements.length === 0 ? (
+                    <p className="empty-state">No equipments added yet.</p>
+                  ) : placements.map(({ item, definition, zone }) => (
+                     <div key={item.id} className="summary-equipment-row">
+                       <div className="summary-eq-visual">
+                          <span className="catalog-product-shape" style={{ "--equipment-color": definition.color, transform: "scale(0.5)" } as CSSProperties} />
+                       </div>
+                       <div className="summary-eq-info">
+                          <strong>{definition.name.toUpperCase()}</strong>
+                       </div>
+                       <div className="summary-eq-pills">
+                          <span className="pill-outline">SIDE A</span>
+                          <span className="pill-filled">{zone.id === "equipment-drop" ? "STORE" : "COOK"}</span>
+                       </div>
+                       <div className="summary-eq-price">+$9,999</div>
+                       <div className="summary-eq-actions">
+                          <button aria-label="Edit" onClick={() => { setShowBuildSummary(false); setSelectedPlacedId(item.id); setEditingPlacedId(item.id); }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          </button>
+                          <button aria-label="Delete" onClick={() => removePlaced(item.id)}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          </button>
+                       </div>
+                     </div>
+                  ))}
+                </div>
+              )}
+              {buildSummaryTab !== 3 && (
+                 <div className="summary-equipments">
+                   <p className="empty-state">This section will be available soon.</p>
+                 </div>
+              )}
+            </div>
+
+            <div className="summary-footer">
+              <div className="summary-totals">
+                 <div className="summary-row">
+                   <span>Subtotal</span>
+                   <span>${((selectedTrailerSize.id === "size-30" ? 99999 : 69000) + placements.length * 9999).toLocaleString()}</span>
+                 </div>
+                 <div className="summary-row">
+                   <span>Other Charges</span>
+                   <span>-</span>
+                 </div>
+                 <div className="summary-total-row">
+                   <strong>Total</strong>
+                   <strong>${((selectedTrailerSize.id === "size-30" ? 99999 : 69000) + placements.length * 9999).toLocaleString()}</strong>
+                 </div>
+              </div>
+              <button className="connect-dealer-btn">CONNECT WITH DEALER</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

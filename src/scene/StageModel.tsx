@@ -16,7 +16,7 @@ function VisibleStageModel({ src }: { src: string }) {
       scale,
       offset: {
         x: -center.x * scale,
-        y: -bounds.min.y * scale,
+        y: -center.y * scale,
         z: -center.z * scale
       }
     };

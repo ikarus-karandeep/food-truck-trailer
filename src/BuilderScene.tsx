@@ -20,6 +20,7 @@ import {
 } from "./scene/dropZone";
 import type { MeasuredFootprint } from "./scene/types";
 import type {
+  ConfiguratorStepId,
   DropPlacement,
   EquipmentDefinition,
   PlacementView,
@@ -28,6 +29,7 @@ import type {
 } from "./types";
 
 type BuilderSceneProps = {
+  selectedStepId: ConfiguratorStepId;
   activeStageModelSrc: string | null;
   dropZoneModelSrc: string | null;
   draggingEquipment: EquipmentDefinition | null;
@@ -68,6 +70,7 @@ function DropZoneCenterLine({ zone }: { zone: Zone }) {
 }
 
 export default function BuilderScene({
+  selectedStepId,
   activeStageModelSrc,
   dropZoneModelSrc,
   draggingEquipment,
@@ -421,6 +424,27 @@ export default function BuilderScene({
           ref={orbitControlsRef}
           enablePan
           enableZoom
+          enableRotate
+          minAzimuthAngle={
+            selectedStepId === "equipment-side" ? -0.35
+            : selectedStepId === "serving-side" ? -Math.PI - 0.35
+            : -Infinity
+          }
+          maxAzimuthAngle={
+            selectedStepId === "equipment-side" ? 0.35
+            : selectedStepId === "serving-side" ? -Math.PI + 0.35
+            : Infinity
+          }
+          minPolarAngle={
+            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
+              ? Math.PI / 2.8
+              : 0
+          }
+          maxPolarAngle={
+            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
+              ? Math.PI / 2
+              : Math.PI
+          }
           minDistance={4.5}
           maxDistance={12}
         />
