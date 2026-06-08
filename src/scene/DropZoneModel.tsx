@@ -6,6 +6,7 @@ import type { Zone } from "../types";
 type DropZoneModelProps = {
   src: string | null;
   referenceSrc: string | null;
+  rotationY?: number;
   onBoundsChange: (
     bounds: Pick<Zone, "x" | "y" | "z" | "length" | "width" | "height" | "lineY"> | null
   ) => void;
@@ -15,6 +16,7 @@ type DropZoneModelProps = {
 function MeasuredDropZoneModel({
   src,
   referenceSrc,
+  rotationY = 0,
   onBoundsChange,
   onTargetChange
 }: Required<DropZoneModelProps> & { src: string; referenceSrc: string }) {
@@ -33,7 +35,7 @@ function MeasuredDropZoneModel({
       scale,
       offset: {
         x: -referenceCenter.x * scale,
-        y: -referenceCenter.y * scale,
+        y: -referenceBounds.min.y * scale,
         z: -referenceCenter.z * scale
       }
     };
@@ -44,13 +46,14 @@ function MeasuredDropZoneModel({
     const content = scene.clone(true);
 
     target.position.set(0, 0.08, 0);
+    target.rotation.set(0, rotationY, 0);
     content.scale.setScalar(metrics.scale);
     content.position.set(metrics.offset.x, metrics.offset.y, metrics.offset.z);
     target.add(content);
     target.updateMatrixWorld(true);
 
     return target;
-  }, [metrics.offset.x, metrics.offset.y, metrics.offset.z, metrics.scale, scene]);
+  }, [metrics.offset.x, metrics.offset.y, metrics.offset.z, metrics.scale, scene, rotationY]);
 
   useEffect(() => {
     const transformedBounds = new Box3().setFromObject(transformedDropZone);
@@ -82,6 +85,7 @@ function MeasuredDropZoneModel({
 export default function DropZoneModel({
   src,
   referenceSrc,
+  rotationY = 0,
   onBoundsChange,
   onTargetChange
 }: DropZoneModelProps) {
@@ -100,6 +104,7 @@ export default function DropZoneModel({
     <MeasuredDropZoneModel
       src={src}
       referenceSrc={referenceSrc ?? src}
+      rotationY={rotationY}
       onBoundsChange={onBoundsChange}
       onTargetChange={onTargetChange}
     />

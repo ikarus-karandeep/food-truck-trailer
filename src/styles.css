@@ -637,6 +637,20 @@ button {
   border: 1px solid rgba(17, 24, 39, 0.08);
 }
 
+/* Image replacement for the mini trailer body */
+.mini-trailer-image {
+  position: absolute;
+  inset: 16px 18px 22px 20px;
+  border-radius: 10px;
+  width: calc(100% - 38px);
+  height: calc(100% - 38px);
+  object-fit: cover;
+}
+
+.mini-trailer-image + .mini-trailer-body {
+  display: none;
+}
+
 .mini-trailer-roof {
   position: absolute;
   top: 6px;

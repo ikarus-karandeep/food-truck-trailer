@@ -17,6 +17,11 @@ import type {
 
 import BuilderScene from "./BuilderScene";
 
+function parsePrice(priceStr: string | undefined): number {
+  if (!priceStr) return 0;
+  return Number(priceStr.replace(/[^0-9.-]+/g, "")) || 0;
+}
+
 function App() {
   const [selectedStepId, setSelectedStepId] = useState<ConfiguratorStepId>("size");
   const [showBuildSummary, setShowBuildSummary] = useState(false);
@@ -668,18 +673,22 @@ function App() {
                 >
                   <span className="catalog-more-link">more info</span>
                   <span className="catalog-product-visual" aria-hidden="true">
-                    <span
-                      className="catalog-product-shape"
-                      style={{ "--equipment-color": equipment.color } as CSSProperties}
-                    />
+                    {equipment.imageUrl && equipment.imageUrl !== "False" ? (
+                      <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    ) : (
+                      <span
+                        className="catalog-product-shape"
+                        style={{ "--equipment-color": equipment.color } as CSSProperties}
+                      />
+                    )}
                   </span>
-                  <strong>$9,999</strong>
+                  <strong>{equipment.price && equipment.price.trim() !== "" ? equipment.price : "$0.00"}</strong>
                   <span>{equipment.name}</span>
 
                   <div className="quantity-controls" onClick={e => e.stopPropagation()}>
-                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="/images/Minus.png" /> </button>
+                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="public/images/Minus.png" /> </button>
                     <span className="quantity-value">{placedCount}</span>
-                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="/images/Plus.png" /></button>
+                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="public/images/Plus.png" /></button>
                   </div>
                 </div>
               )})}
@@ -704,7 +713,7 @@ function App() {
       <main className="experience-shell">
         <div className="brand-bar">
           <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
-            <img src="/images/Back.png" />
+            <img src="public/images/Back.png" />
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
@@ -833,10 +842,11 @@ function App() {
                     </div>
                     <div className="trailer-card__visual" aria-hidden="true">
                       <div className="trailer-card__mini-stage">
-                        <span className="mini-trailer-body" />
-                        <span className="mini-trailer-roof" />
-                        <span className="mini-trailer-wheel wheel-a" />
-                        <span className="mini-trailer-wheel wheel-b" />
+                        <img src="/Images/StoreandDispense.png" alt="Store and Dispense" className="mini-trailer-image" />
+                        {/* <span className="mini-trailer-body" />
+                        <span className="mini-trailer-roof" /> */}
+                        {/* <span className="mini-trailer-wheel wheel-a" />
+                        <span className="mini-trailer-wheel wheel-b" /> */}
                       </div>
                     </div>
                     <div className="trailer-card__body size-card__body">
@@ -1029,7 +1039,7 @@ function App() {
             Build Summary
           </button>
           <button type="button" className="icon-action-button" aria-label="Save build">
-            <img src="/images/Save.png" className="icon-action-button-img"/>
+            <img src="public/images/Save.png" className="icon-action-button-img"/>
           </button>
         </div>
       </aside>
@@ -1044,13 +1054,14 @@ function App() {
             
             <div className="summary-trailer-card">
               <div className="summary-trailer-visual">
-                <div className="trailer-card__mini-stage" style={{ transform: "scale(0.55) translate(-10%, 10%)" }}>
-                  <span className="mini-trailer-body" />
-                  <span className="mini-trailer-roof" />
-                  <span className="mini-trailer-wheel wheel-a" />
-                  <span className="mini-trailer-wheel wheel-b" />
+                  <div className="trailer-card__mini-stage" style={{ transform: "scale(0.55) translate(-10%, 10%)" }}>
+                    <img src="/Images/StoreandDispense.png" alt="Store and Dispense" className="mini-trailer-image" />
+                    {/* <span className="mini-trailer-body" /> */}
+                    {/* <span className="mini-trailer-roof" /> */}
+                    {/* <span className="mini-trailer-wheel wheel-a" />
+                    <span className="mini-trailer-wheel wheel-b" /> */}
+                  </div>
                 </div>
-              </div>
               <div className="summary-trailer-info">
                  <span className="summary-trailer-type">{selectedTrailerSize.id === "size-30" ? "HOT FOOD SERVICE TRAILER" : "CONCESSION TRAILER"}</span>
                  <strong className="summary-trailer-price">${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
@@ -1070,36 +1081,78 @@ function App() {
             </nav>
 
             <div className="summary-tab-content">
+              {buildSummaryTab === 1 && (
+                 <div className="summary-equipments">
+                    <div className="size-summary-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                       <h3 style={{ fontSize: '18px', margin: 0 }}>{selectedTrailerSize.id === "size-30" ? "Hot Food Service" : "Store & Dispense"}</h3>
+                       <p style={{ margin: 0, color: 'var(--text-soft)' }}>
+                          {selectedTrailerSize.id === "size-30" ? "Built for cooking-focused menus with room for heavier kitchen equipment." : "Ideal for businesses focused on ice-creams, drinks and display."}
+                       </p>
+                    </div>
+                 </div>
+              )}
+              {buildSummaryTab === 2 && (
+                 <div className="summary-equipments size-summary-tab">
+                    <div className="size-summary-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                       <h3 style={{ fontSize: '18px', margin: 0 }}>{selectedTrailerSize.label} Trailer</h3>
+                       <p style={{ margin: 0, color: 'var(--text-soft)' }}>
+                          {selectedTrailerSize.id === "size-30" ? "Maximum room for high-volume service layouts." : 
+                           selectedTrailerSize.id === "size-16" ? "Perfect for focused menus and mobile operations." :
+                           "A versatile size for growing food businesses."}
+                       </p>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                          <strong>Base Price</strong>
+                          <strong>${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
+                       </div>
+                    </div>
+                 </div>
+              )}
               {buildSummaryTab === 3 && (
                 <div className="summary-equipments">
                   {placements.length === 0 ? (
                     <p className="empty-state">No equipments added yet.</p>
-                  ) : placements.map(({ item, definition, zone }) => (
-                     <div key={item.id} className="summary-equipment-row">
-                       <div className="summary-eq-visual">
-                          <span className="catalog-product-shape" style={{ "--equipment-color": definition.color, transform: "scale(0.5)" } as CSSProperties} />
+                  ) : (() => {
+                    const grouped = new Map();
+                    for (const p of placements) {
+                       const key = `${p.definition.id}-${p.zone.id}`;
+                       if (!grouped.has(key)) {
+                          grouped.set(key, { definition: p.definition, zone: p.zone, count: 0, items: [] });
+                       }
+                       const g = grouped.get(key);
+                       g.count++;
+                       g.items.push(p.item.id);
+                    }
+                    return Array.from(grouped.values()).map(({ definition, zone, count }) => (
+                     <div key={`${definition.id}-${zone.id}`} className="summary-equipment-row">
+                       <div className="summary-eq-visual" style={{ width: '48px', height: '48px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {definition.imageUrl && definition.imageUrl !== "False" ? (
+                             <img src={definition.imageUrl} alt={definition.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                          ) : (
+                             <span className="catalog-product-shape" style={{ "--equipment-color": definition.color, transform: "scale(0.5)" } as React.CSSProperties} />
+                          )}
                        </div>
                        <div className="summary-eq-info">
                           <strong>{definition.name.toUpperCase()}</strong>
+                          <span style={{ fontSize: '0.85em', color: 'var(--text-soft)', marginTop: '2px', display: 'block' }}>Qty: {count}</span>
                        </div>
                        <div className="summary-eq-pills">
                           <span className="pill-outline">SIDE A</span>
                           <span className="pill-filled">{zone.id === "equipment-drop" ? "STORE" : "COOK"}</span>
                        </div>
-                       <div className="summary-eq-price">+$9,999</div>
+                       <div className="summary-eq-price">
+                          ${(parsePrice(definition.price) * count).toLocaleString()}
+                       </div>
                        <div className="summary-eq-actions">
-                          <button aria-label="Edit" onClick={() => { setShowBuildSummary(false); setSelectedPlacedId(item.id); setEditingPlacedId(item.id); }}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                          </button>
-                          <button aria-label="Delete" onClick={() => removePlaced(item.id)}>
+                          <button aria-label="Delete" onClick={() => removeOnePlaced(definition.id)}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                           </button>
                        </div>
                      </div>
-                  ))}
+                   ));
+                  })()}
                 </div>
               )}
-              {buildSummaryTab !== 3 && (
+              {buildSummaryTab === 4 && (
                  <div className="summary-equipments">
                    <p className="empty-state">This section will be available soon.</p>
                  </div>
@@ -1108,18 +1161,27 @@ function App() {
 
             <div className="summary-footer">
               <div className="summary-totals">
-                 <div className="summary-row">
-                   <span>Subtotal</span>
-                   <span>${((selectedTrailerSize.id === "size-30" ? 99999 : 69000) + placements.length * 9999).toLocaleString()}</span>
-                 </div>
-                 <div className="summary-row">
-                   <span>Other Charges</span>
-                   <span>-</span>
-                 </div>
-                 <div className="summary-total-row">
-                   <strong>Total</strong>
-                   <strong>${((selectedTrailerSize.id === "size-30" ? 99999 : 69000) + placements.length * 9999).toLocaleString()}</strong>
-                 </div>
+                 {(() => {
+                   const equipmentsTotal = placements.reduce((sum, { definition }) => sum + parsePrice(definition.price), 0);
+                   const basePrice = selectedTrailerSize.id === "size-30" ? 99999 : 69000;
+                   const total = basePrice + equipmentsTotal;
+                   return (
+                     <>
+                       <div className="summary-row">
+                         <span>Subtotal</span>
+                         <span>${total.toLocaleString()}</span>
+                       </div>
+                       <div className="summary-row">
+                         <span>Other Charges</span>
+                         <span>-</span>
+                       </div>
+                       <div className="summary-total-row">
+                         <strong>Total</strong>
+                         <strong>${total.toLocaleString()}</strong>
+                       </div>
+                     </>
+                   );
+                 })()}
               </div>
               <button className="connect-dealer-btn">CONNECT WITH DEALER</button>
             </div>

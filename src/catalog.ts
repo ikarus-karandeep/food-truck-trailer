@@ -63,6 +63,54 @@ function getDefaultEquipmentSize(level: number) {
   return { length: 0.65, width: 0.65, height: 0.9 };
 }
 
+import equipmentDataRaw from "../models/equipment.json";
+
+function getEquipmentMatch(glbName: string) {
+  const normalizedGlb = glbName.toLowerCase().replace(/\.glb$/i, "").replace(/[-_]+/g, " ");
+  // Extract numbers (like 24, 36) to ensure size matching
+  const numbers = normalizedGlb.match(/\d+/g) || [];
+  
+  let bestMatch = null;
+  let bestScore = -1;
+
+  for (const eq of equipmentDataRaw as any[]) {
+    const eqName = eq.name.toLowerCase();
+    const eqCat = (eq.subcategory || "").toLowerCase();
+    const eqSku = (eq.sku || "").toLowerCase();
+    const eqText = `${eqName} ${eqSku} ${eqCat}`;
+    
+    // Check if the primary size number matches (first number in glb name)
+    const primarySize = numbers[0];
+    const secondarySize = numbers.length > 1 ? numbers[1] : null;
+
+    if (primarySize && !eqText.includes(primarySize)) {
+      continue;
+    }
+
+    // Calculate text overlap score
+    const glbWords = normalizedGlb.split(" ").filter(w => isNaN(Number(w)) && w.length > 1);
+    let score = 0;
+
+    if (secondarySize && eqText.includes(secondarySize)) {
+      score += 5;
+    }
+
+    for (const w of glbWords) {
+      if (eqName.includes(w)) score += 3;
+      if (eqCat.includes(w)) score += 2;
+      if (eqSku.includes(w)) score += 1;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = eq;
+    }
+  }
+
+  // If score is 0 and there are word characters, it's a poor match, but we'll accept best efforts.
+  return bestMatch;
+}
+
 export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
   .filter((entry) => entry.side === "equipment" || entry.side === "serving")
   .flatMap((entry) => {
@@ -72,15 +120,24 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
       return [];
     }
 
+    const eqMatch = getEquipmentMatch(entry["glb name"]);
+    const mappedName = eqMatch ? eqMatch.name : formatModelLabel(entry["glb name"]);
+    const price = eqMatch ? eqMatch.price : "";
+    const imageUrl = eqMatch ? (eqMatch.builder_image_url && eqMatch.builder_image_url !== "False" ? eqMatch.builder_image_url : eqMatch.image_url) : "";
+    const sku = eqMatch ? eqMatch.sku : "";
+
     return [
       {
         id: slugify(entry["glb name"]),
-        name: formatModelLabel(entry["glb name"]),
+        name: mappedName,
         menuType: entry["menu type"],
         side: entry.side,
         level: entry.level,
         size: getDefaultEquipmentSize(entry.level),
         color: getMenuAccent(entry["menu type"]),
+        price,
+        imageUrl,
+        sku,
         model3d: {
           src,
           scale: 1,
@@ -89,6 +146,7 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
       }
     ];
   });
+
 
 const generatedMenuGroups: EquipmentMenuGroup[] = Array.from(
   equipmentCatalog.reduce((groups, equipment) => {

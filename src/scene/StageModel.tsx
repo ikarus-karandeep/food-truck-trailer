@@ -2,7 +2,7 @@ import { Clone, useGLTF } from "@react-three/drei";
 import { useMemo } from "react";
 import { Box3, Vector3 } from "three";
 
-function VisibleStageModel({ src }: { src: string }) {
+function VisibleStageModel({ src, rotationY = 0 }: { src: string; rotationY?: number }) {
   const gltf = useGLTF(src);
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const metrics = useMemo(() => {
@@ -23,7 +23,7 @@ function VisibleStageModel({ src }: { src: string }) {
   }, [scene]);
 
   return (
-    <group position={[0, 0.08, 0]}>
+    <group position={[0, 0.08, 0]} rotation={[0, rotationY, 0]}>
       <group
         scale={metrics.scale}
         position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
@@ -34,10 +34,10 @@ function VisibleStageModel({ src }: { src: string }) {
   );
 }
 
-export default function StageModel({ src }: { src: string | null }) {
+export default function StageModel({ src, rotationY = 0 }: { src: string | null; rotationY?: number }) {
   if (!src) {
     return null;
   }
 
-  return <VisibleStageModel src={src} />;
+  return <VisibleStageModel src={src} rotationY={rotationY} />;
 }

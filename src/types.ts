@@ -10,6 +10,9 @@ export type EquipmentDefinition = {
     height: number;
   };
   color: string;
+  price?: string;
+  imageUrl?: string;
+  sku?: string;
   model3d?: {
     src: string;
     scale: number;

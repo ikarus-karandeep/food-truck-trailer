@@ -15,8 +15,8 @@ export const trailerSizes: TrailerSize[] = [
       "serving-side": new URL("../models/base/16-serving.glb", import.meta.url).href
     },
     dropZoneModels: {
-      "equipment-side": new URL("../models/base/16-equipment-drop-zone.glb", import.meta.url)
-        .href
+      "equipment-side": new URL("../models/base/16-equipment-drop-zone.glb", import.meta.url).href,
+      "serving-side": new URL("../models/base/16-serving-drop-zone.glb", import.meta.url).href
     }
   },
   {
@@ -31,8 +31,9 @@ export const trailerSizes: TrailerSize[] = [
       "serving-side": new URL("../models/base/30-serving.glb", import.meta.url).href
     },
     dropZoneModels: {
-      "equipment-side": new URL("../models/base/30-dropzone.glb", import.meta.url)
-        .href
+      "equipment-side": new URL("../models/base/30-dropzone.glb", import.meta.url).href,
+      "serving-side": new URL("../models/base/30-dropzone-serving.glb", import.meta.url).href,
+
     }
   }
 ];

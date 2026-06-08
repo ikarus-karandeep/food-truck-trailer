@@ -261,13 +261,13 @@ export default function BuilderScene({
       placement:
         zone && snappedVector
           ? resolveNonIntersectingPlacement(
-              zone,
-              definition,
-              definition.id,
-              snappedVector,
-              placements,
-              measuredFootprints
-            )
+            zone,
+            definition,
+            definition.id,
+            snappedVector,
+            placements,
+            measuredFootprints
+          )
           : null
     };
   }
@@ -330,12 +330,13 @@ export default function BuilderScene({
         />
         <group onPointerMissed={() => onPlacedSelect(null)}>
           <Suspense fallback={null}>
-            <StageModel src={activeStageModelSrc} />
+            <StageModel src={activeStageModelSrc} rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0} />
           </Suspense>
           <Suspense fallback={null}>
             <DropZoneModel
               src={dropZoneModelSrc}
               referenceSrc={activeStageModelSrc}
+              rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0}
               onBoundsChange={onDropZoneBoundsChange}
               onTargetChange={(target) => {
                 dropZoneTargetRef.current = target;
@@ -427,12 +428,12 @@ export default function BuilderScene({
           enableRotate
           minAzimuthAngle={
             selectedStepId === "equipment-side" ? -0.35
-            : selectedStepId === "serving-side" ? -Math.PI - 0.35
+            : selectedStepId === "serving-side" ? -0.35
             : -Infinity
           }
           maxAzimuthAngle={
             selectedStepId === "equipment-side" ? 0.35
-            : selectedStepId === "serving-side" ? -Math.PI + 0.35
+            : selectedStepId === "serving-side" ? 0.35
             : Infinity
           }
           minPolarAngle={
