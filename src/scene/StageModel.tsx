@@ -1,9 +1,22 @@
 import { Clone, useGLTF } from "@react-three/drei";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Box3, Vector3 } from "three";
 
-function VisibleStageModel({ src, rotationY = 0 }: { src: string; rotationY?: number }) {
+function VisibleStageModel({
+  src,
+  rotationY = 0,
+  onLoad
+}: {
+  src: string;
+  rotationY?: number;
+  onLoad?: () => void;
+}) {
   const gltf = useGLTF(src);
+
+  useEffect(() => {
+    if (onLoad) onLoad();
+  }, [onLoad, src]);
+
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const metrics = useMemo(() => {
     const bounds = new Box3().setFromObject(scene);
@@ -16,7 +29,7 @@ function VisibleStageModel({ src, rotationY = 0 }: { src: string; rotationY?: nu
       scale,
       offset: {
         x: -center.x * scale,
-        y: -center.y * scale,
+        y: -bounds.min.y * scale,
         z: -center.z * scale
       }
     };
@@ -34,10 +47,19 @@ function VisibleStageModel({ src, rotationY = 0 }: { src: string; rotationY?: nu
   );
 }
 
-export default function StageModel({ src, rotationY = 0 }: { src: string | null; rotationY?: number }) {
+export default function StageModel({
+  src,
+  rotationY = 0,
+  onLoad
+}: {
+  src: string | null;
+  rotationY?: number;
+  onLoad?: () => void;
+}) {
   if (!src) {
     return null;
   }
 
-  return <VisibleStageModel src={src} rotationY={rotationY} />;
+  return <VisibleStageModel src={src} rotationY={rotationY} onLoad={onLoad} />;
 }
+

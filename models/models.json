@@ -2,25 +2,25 @@
   {
     "glb name": "Blender.glb",
     "menu type": "Small Appliances",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
     "glb name": "Espresso-Machine-28.glb",
     "menu type": "Small Appliances",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
     "glb name": "Espresso-Machine-20.glb",
     "menu type": "Small Appliances",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
     "glb name": "Espresso-Machine-16.glb",
     "menu type": "Small Appliances",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
@@ -446,19 +446,19 @@
   {
     "glb name": "Soft-Serve-Machine-16.glb",
     "menu type": "Ice Cream Equipment",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
     "glb name": "Soft-Serve-Machine-22.glb",
     "menu type": "Ice Cream Equipment",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
     "glb name": "Ice-Shaver.glb",
     "menu type": "Ice Cream Equipment",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {
@@ -524,133 +524,133 @@
   {
     "glb name": "Chef-Base-82-86.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-82-84.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-82.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-79.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-79-86.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-72.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-52.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-52-60.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-48.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chef-Base-36.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chest-Freezer-60.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chest-Freezer-40.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Chest-Freezer-37.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Freezer-60.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Freezer-48.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Freezer-27.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Freezer-36.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Refrigerator-72.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Refrigerator-60.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Refrigerator-48.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Refrigerator-36.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
     "glb name": "Undercounter-Refrigerator-27.glb",
     "menu type": "Refrigerators & Freezers",
-    "level": 0,
+    "level": 1,
     "side": "equipment"
   },
   {
@@ -680,7 +680,7 @@
   {
     "glb name": "Espresso Grinder.glb",
     "menu type": "Small Appliances",
-    "level": 1,
+    "level": 2,
     "side": "equipment"
   },
   {

@@ -11,6 +11,7 @@ type DropZoneModelProps = {
     bounds: Pick<Zone, "x" | "y" | "z" | "length" | "width" | "height" | "lineY"> | null
   ) => void;
   onTargetChange: (target: Group | null) => void;
+  onLoad?: () => void;
 };
 
 function MeasuredDropZoneModel({
@@ -18,10 +19,16 @@ function MeasuredDropZoneModel({
   referenceSrc,
   rotationY = 0,
   onBoundsChange,
-  onTargetChange
-}: Required<DropZoneModelProps> & { src: string; referenceSrc: string }) {
+  onTargetChange,
+  onLoad
+}: DropZoneModelProps & { src: string; referenceSrc: string }) {
   const gltf = useGLTF(src);
   const referenceGltf = useGLTF(referenceSrc);
+
+  useEffect(() => {
+    if (onLoad) onLoad();
+  }, [onLoad, src]);
+
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const referenceScene = useMemo(() => referenceGltf.scene.clone(true), [referenceGltf.scene]);
   const metrics = useMemo(() => {
@@ -87,7 +94,8 @@ export default function DropZoneModel({
   referenceSrc,
   rotationY = 0,
   onBoundsChange,
-  onTargetChange
+  onTargetChange,
+  onLoad
 }: DropZoneModelProps) {
   useEffect(() => {
     if (!src) {
@@ -107,6 +115,8 @@ export default function DropZoneModel({
       rotationY={rotationY}
       onBoundsChange={onBoundsChange}
       onTargetChange={onTargetChange}
+      onLoad={onLoad}
     />
   );
 }
+

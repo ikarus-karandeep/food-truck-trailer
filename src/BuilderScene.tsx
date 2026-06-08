@@ -14,7 +14,6 @@ import ViewportControls from "./scene/ViewportControls";
 import {
   getEquipmentAxisSize,
   getZoneAxisInfo,
-  getZoneCenterlineEndpoints,
   resolveNonIntersectingPlacement,
   snapPointToZoneCenterline
 } from "./scene/dropZone";
@@ -51,23 +50,10 @@ type BuilderSceneProps = {
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
   onMeasuredFootprintsChange: (footprints: Record<string, MeasuredFootprint>) => void;
   onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
+  onLoadingChange: (loading: boolean) => void;
 };
 
-function DropZoneCenterLine({ zone }: { zone: Zone }) {
-  const points = useMemo(() => getZoneCenterlineEndpoints(zone), [zone]);
 
-  return (
-    <line>
-      <bufferGeometry attach="geometry">
-        <bufferAttribute
-          attach="attributes-position"
-          args={[new Float32Array(points.flatMap((point) => point.toArray())), 3]}
-        />
-      </bufferGeometry>
-      <lineBasicMaterial attach="material" color="#d62828" linewidth={2} />
-    </line>
-  );
-}
 
 export default function BuilderScene({
   selectedStepId,
@@ -85,7 +71,8 @@ export default function BuilderScene({
   onEquipmentDrop,
   onViewportEquipmentChange,
   onMeasuredFootprintsChange,
-  onSwapPlaced
+  onSwapPlaced,
+  onLoadingChange
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
@@ -99,7 +86,22 @@ export default function BuilderScene({
   const [measuredFootprints, setMeasuredFootprints] = useState<Record<string, MeasuredFootprint>>(
     {}
   );
+  const [stageLoading, setStageLoading] = useState(false);
+  const [dropZoneLoading, setDropZoneLoading] = useState(false);
   const [hoveredPlacedId, setHoveredPlacedId] = useState<string | null>(null);
+
+  // Trigger major loading state when source models change
+  useEffect(() => {
+    if (activeStageModelSrc) setStageLoading(true);
+  }, [activeStageModelSrc]);
+
+  useEffect(() => {
+    if (dropZoneModelSrc) setDropZoneLoading(true);
+  }, [dropZoneModelSrc]);
+
+  useEffect(() => {
+    onLoadingChange(stageLoading || dropZoneLoading);
+  }, [stageLoading, dropZoneLoading, onLoadingChange]);
 
   function handleFootprintChange(measuredId: string, footprint: MeasuredFootprint) {
     setMeasuredFootprints((current) => {
@@ -319,7 +321,7 @@ export default function BuilderScene({
         }}
       >
         <color attach="background" args={["#f3f3f2"]} />
-        <Environment preset="park" environmentIntensity={0.68} />
+        <Environment files="/neutral.hdr" environmentIntensity={0.68} />
         <hemisphereLight intensity={0.52} color="#ffffff" groundColor="#cfcfc8" />
         <directionalLight
           position={[8, 11, 6]}
@@ -330,7 +332,11 @@ export default function BuilderScene({
         />
         <group onPointerMissed={() => onPlacedSelect(null)}>
           <Suspense fallback={null}>
-            <StageModel src={activeStageModelSrc} rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0} />
+            <StageModel
+              src={activeStageModelSrc}
+              rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0}
+              onLoad={() => setStageLoading(false)}
+            />
           </Suspense>
           <Suspense fallback={null}>
             <DropZoneModel
@@ -341,11 +347,10 @@ export default function BuilderScene({
               onTargetChange={(target) => {
                 dropZoneTargetRef.current = target;
               }}
+              onLoad={() => setDropZoneLoading(false)}
             />
           </Suspense>
-          {droppableZones.map((zone) => (
-            <DropZoneCenterLine key={zone.id} zone={zone} />
-          ))}
+
           {draggingEquipment && dragPreviewPlacement ? (
             <Suspense fallback={null}>
               <DragPreviewEquipmentVisual
@@ -418,9 +423,9 @@ export default function BuilderScene({
             );
           })}
         </group>
-        <GizmoHelper alignment="top-right" margin={[88, 88]}>
+        {/* <GizmoHelper alignment="top-right" margin={[88, 88]}>
           <GizmoViewport axisColors={["#111111", "#6b7280", "#d97706"]} labelColor="#ffffff" />
-        </GizmoHelper>
+        </GizmoHelper> */}
         <OrbitControls
           ref={orbitControlsRef}
           enablePan

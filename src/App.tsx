@@ -34,9 +34,17 @@ function App() {
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
   const [editingPlacedId, setEditingPlacedId] = useState<string | null>(null);
   const [dropZoneBoundsMap, setDropZoneBoundsMap] = useState<Record<string, Partial<Zone>>>({});
+  const [showNoBaseModal, setShowNoBaseModal] = useState(false);
+  // Pending Level-1 delete that has stacked Level-2 items
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    level1Id: string;
+    level2Ids: string[];
+    isQuantityRemove?: boolean; // came from removeOnePlaced (−button)
+  } | null>(null);
   const [measuredFootprints, setMeasuredFootprints] = useState<
     Record<string, MeasuredFootprint>
   >({});
+  const [isLoading, setIsLoading] = useState(true);
 
   const allZones = useMemo(() => buildZones(dropZoneBoundsMap), [dropZoneBoundsMap]);
 
@@ -112,7 +120,7 @@ function App() {
   function compactItems(
     items: PlacedEquipment[],
     zoneId: ZoneId,
-    level: number
+    levels: number[]  // all levels in this tier, compacted together
   ): PlacedEquipment[] {
     const zone = zoneMap[zoneId];
     if (!zone) return items;
@@ -122,7 +130,7 @@ function App() {
     const peers = items
       .map((item) => {
         const def = equipmentMap[item.definitionId];
-        if (!def || item.zoneId !== zoneId || def.level !== level) {
+        if (!def || item.zoneId !== zoneId || !levels.includes(def.level)) {
           return null;
         }
         const axisPos = horizontal
@@ -159,10 +167,11 @@ function App() {
 
       const currentPlacement = item.manualPlacement;
       // Use zone defaults for dimensions we are not compacting along
+      // ALWAYS track the zone's dynamic Y coordinate. The X/Z defaults depend on orientation.
       const baseX = currentPlacement?.x ?? zone.x;
-      const baseY = currentPlacement?.y ?? zone.lineY;
+      const baseY = zone.lineY; // Dynamically track the drop zone's height to prevent floating items after model load
       const baseZ = currentPlacement?.z ?? zone.z;
-      const baseRotation = currentPlacement?.rotationY ?? 0;
+      const baseRotation = currentPlacement?.rotationY ?? (zone.id === "serving-drop" ? Math.PI : 0);
 
       return {
         ...item,
@@ -176,53 +185,203 @@ function App() {
     });
   }
 
+  /** After ground-tier compaction, realign Level 2 items to sit on their Level 1 support. */
+  function realignLevel2Items(items: PlacedEquipment[]): PlacedEquipment[] {
+    return items.map((item) => {
+      const def = equipmentMap[item.definitionId];
+      if (!def || def.level !== 2) return item;
+
+      const zone = zoneMap[item.zoneId as ZoneId];
+      if (!zone) return item;
+
+      const myX = item.manualPlacement?.x ?? zone.x;
+      const myZ = item.manualPlacement?.z ?? zone.z;
+
+      // Find the Level 1 item with the closest x/z in the same zone
+      let bestSupport: PlacedEquipment | null = null;
+      let bestDist = Infinity;
+
+      items.forEach((other) => {
+        const otherDef = equipmentMap[other.definitionId];
+        if (!otherDef || other.zoneId !== item.zoneId || otherDef.level !== 1) return;
+        const otherX = other.manualPlacement?.x ?? zone.x;
+        const otherZ = other.manualPlacement?.z ?? zone.z;
+        const dist = Math.abs(otherX - myX) + Math.abs(otherZ - myZ);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSupport = other;
+        }
+      });
+
+      if (!bestSupport) return item; // No Level 1 support found, keep as-is
+
+      const supportDef = equipmentMap[(bestSupport as PlacedEquipment).definitionId];
+      const supportX = (bestSupport as PlacedEquipment).manualPlacement?.x ?? zone.x;
+      const supportZ = (bestSupport as PlacedEquipment).manualPlacement?.z ?? zone.z;
+      const supportY = (bestSupport as PlacedEquipment).manualPlacement?.y ?? zone.lineY;
+      const supportHeight = supportDef?.size.height ?? 0.5;
+
+      return {
+        ...item,
+        manualPlacement: {
+          x: supportX,
+          y: supportY + supportHeight,
+          z: supportZ,
+          rotationY: item.manualPlacement?.rotationY ?? 0
+        }
+      };
+    });
+  }
+
   function compactPlacedItems(
     remainingItems: PlacedEquipment[],
     deletedItem: PlacedEquipment
   ): PlacedEquipment[] {
     const deletedDefinition = equipmentMap[deletedItem.definitionId];
     if (!deletedDefinition) return remainingItems;
-    return compactItems(remainingItems, deletedItem.zoneId, deletedDefinition.level);
+    // Level 0 and Level 1 are both ground-tier — always compact them together
+    const levels = deletedDefinition.level <= 1 ? [0, 1] : [deletedDefinition.level];
+    const compacted = compactItems(remainingItems, deletedItem.zoneId, levels);
+    // After ground-tier items shift, realign Level 2 items to their new support positions
+    return realignLevel2Items(compacted);
   }
 
   useEffect(() => {
     setPlaced((current) => {
       let updated = [...current];
-      // Collect unique (zone, level) pairs to compact
-      const pairs = new Set<string>();
+
+      // Collect unique zones that have ground-tier items (level 0 or 1)
+      const groundZones = new Set<string>();
       current.forEach((item) => {
         const def = equipmentMap[item.definitionId];
-        if (def && item.zoneId) {
-          pairs.add(`${item.zoneId}|${def.level}`);
+        if (def && item.zoneId && def.level <= 1) {
+          groundZones.add(item.zoneId);
         }
       });
 
-      pairs.forEach((pair) => {
-        const [zoneId, levelStr] = pair.split("|");
-        updated = compactItems(updated, zoneId as ZoneId, parseInt(levelStr, 10));
+      // Compact ground tier (level 0 + 1 together) per zone
+      groundZones.forEach((zoneId) => {
+        updated = compactItems(updated, zoneId as ZoneId, [0, 1]);
       });
 
-      // Avoid state update if nothing changed (shallow equal check on positions)
+      // After ground compaction, realign Level 2 items to sit on top of
+      // their nearest Level 1 support. This keeps them correctly stacked
+      // when Level 1 positions shift, without accidentally resetting y to ground.
+      updated = updated.map((item) => {
+        const def = equipmentMap[item.definitionId];
+        if (!def || def.level !== 2) return item;
+
+        const zone = zoneMap[item.zoneId as ZoneId];
+        if (!zone) return item;
+
+        const myX = item.manualPlacement?.x ?? zone.x;
+        const myZ = item.manualPlacement?.z ?? zone.z;
+
+        // Find the Level 1 item with the closest x/z in the same zone
+        let bestSupport: PlacedEquipment | null = null;
+        let bestDist = Infinity;
+
+        updated.forEach((other) => {
+          const otherDef = equipmentMap[other.definitionId];
+          if (!otherDef || other.zoneId !== item.zoneId || otherDef.level !== 1) return;
+          const otherX = other.manualPlacement?.x ?? zone.x;
+          const otherZ = other.manualPlacement?.z ?? zone.z;
+          const dist = Math.abs(otherX - myX) + Math.abs(otherZ - myZ);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestSupport = other;
+          }
+        });
+
+        if (!bestSupport) return item; // No Level 1 support found, keep as-is
+
+        const supportDef = equipmentMap[(bestSupport as PlacedEquipment).definitionId];
+        const supportX = (bestSupport as PlacedEquipment).manualPlacement?.x ?? zone.x;
+        const supportZ = (bestSupport as PlacedEquipment).manualPlacement?.z ?? zone.z;
+        const supportY = (bestSupport as PlacedEquipment).manualPlacement?.y ?? zone.lineY;
+        const supportHeight = supportDef?.size.height ?? 0.5;
+
+        return {
+          ...item,
+          manualPlacement: {
+            x: supportX,
+            y: supportY + supportHeight,
+            z: supportZ,
+            rotationY: item.manualPlacement?.rotationY ?? 0
+          }
+        };
+      });
+
+      // Avoid state update if nothing changed
       const changed = updated.some(
         (item, idx) =>
           item.manualPlacement?.x !== current[idx].manualPlacement?.x ||
-          item.manualPlacement?.z !== current[idx].manualPlacement?.z
+          item.manualPlacement?.z !== current[idx].manualPlacement?.z ||
+          item.manualPlacement?.y !== current[idx].manualPlacement?.y
       );
 
       return changed ? updated : current;
     });
   }, [measuredFootprints, equipmentMap, zoneMap]);
-  function removePlaced(id: string) {
+
+  /** Find Level-2 ids stacked on a given placed item (by x/z proximity). */
+  function findStackedLevel2Ids(all: PlacedEquipment[], baseItem: PlacedEquipment): string[] {
+    const baseX = baseItem.manualPlacement?.x;
+    const baseZ = baseItem.manualPlacement?.z;
+    if (baseX === undefined || baseZ === undefined) return [];
+    return all
+      .filter((item) => {
+        const def = equipmentMap[item.definitionId];
+        if (def?.level !== 2) return false;
+        const ix = item.manualPlacement?.x ?? 0;
+        const iz = item.manualPlacement?.z ?? 0;
+        return Math.abs(ix - baseX) < 0.01 && Math.abs(iz - baseZ) < 0.01;
+      })
+      .map((item) => item.id);
+  }
+
+  /** Actually delete a Level-1 item and its stacked Level-2 items. */
+  function confirmDeleteWithCascade() {
+    if (!deleteConfirmState) return;
+    const { level1Id, level2Ids } = deleteConfirmState;
+    const idsToRemove = new Set([level1Id, ...level2Ids]);
+
     setPlaced((current) => {
-      const deletedItem = current.find((item) => item.id === id);
-      const remaining = current.filter((item) => item.id !== id);
-
+      const deletedItem = current.find((item) => item.id === level1Id);
+      const remaining = current.filter((item) => !idsToRemove.has(item.id));
       if (!deletedItem) return remaining;
-
       return compactPlacedItems(remaining, deletedItem);
     });
-    setSelectedPlacedId((current) => (current === id ? null : current));
-    setEditingPlacedId((current) => (current === id ? null : current));
+    setSelectedPlacedId((cur) => (idsToRemove.has(cur ?? "") ? null : cur));
+    setEditingPlacedId((cur) => (idsToRemove.has(cur ?? "") ? null : cur));
+    setDeleteConfirmState(null);
+  }
+
+  function removePlaced(id: string) {
+    // Peek at current placed without triggering a state update
+    setPlaced((current) => {
+      const deletedItem = current.find((item) => item.id === id);
+      if (!deletedItem) return current.filter((item) => item.id !== id);
+
+      const deletedDef = equipmentMap[deletedItem.definitionId];
+
+      // If Level 1 has Level 2 on top → ask for confirmation instead
+      if (deletedDef?.level === 1) {
+        const stackedIds = findStackedLevel2Ids(current, deletedItem);
+        if (stackedIds.length > 0) {
+          // Schedule the modal to open after this setter returns
+          setTimeout(() => setDeleteConfirmState({ level1Id: id, level2Ids: stackedIds }), 0);
+          return current; // abort — do nothing yet
+        }
+      }
+
+      // No stacked Level 2 — delete immediately
+      const remaining = current.filter((item) => item.id !== id);
+      return compactPlacedItems(remaining, deletedItem);
+    });
+    // Only clear selections when not blocked (if blocked, confirmDeleteWithCascade handles it)
+    setSelectedPlacedId((cur) => (cur === id ? null : cur));
+    setEditingPlacedId((cur) => (cur === id ? null : cur));
   }
 
   function removeOnePlaced(definitionId: string) {
@@ -230,6 +389,19 @@ function App() {
       const reversed = [...current].reverse();
       const itemToRemove = reversed.find(i => i.definitionId === definitionId);
       if (!itemToRemove) return current;
+
+      const removedDef = equipmentMap[itemToRemove.definitionId];
+
+      // If Level 1 has Level 2 on top → ask for confirmation instead
+      if (removedDef?.level === 1) {
+        const stackedIds = findStackedLevel2Ids(current, itemToRemove);
+        if (stackedIds.length > 0) {
+          setTimeout(() =>
+            setDeleteConfirmState({ level1Id: itemToRemove.id, level2Ids: stackedIds, isQuantityRemove: true }),
+          0);
+          return current; // abort
+        }
+      }
 
       const remaining = current.filter(i => i.id !== itemToRemove.id);
       return compactPlacedItems(remaining, itemToRemove);
@@ -278,44 +450,45 @@ function App() {
       return;
     }
 
-    // Only look for support items within the current active zone
     const zonePlacements = placements.filter(({ zone: placedZone }) => placedZone.id === zone.id);
-    const lowerLevelPlacement =
-      definition.level > 0
-        ? zonePlacements.find(({ definition: placedDefinition, placement }) => {
-            const alreadySupportsSameLevel = zonePlacements.some(
-              ({ definition: stackedDefinition, placement: stackedPlacement }) =>
-                stackedDefinition.level === definition.level &&
-                stackedPlacement.x === placement.x &&
-                stackedPlacement.z === placement.z
-            );
 
-            return placedDefinition.level === definition.level - 1 && !alreadySupportsSameLevel;
-          }) ??
-          zonePlacements.find(
-            ({ definition: placedDefinition }) => placedDefinition.level === definition.level - 1
-          ) ??
-          null
-        : null;
+    if (definition.level === 2) {
+      // --- LEVEL 2: stacks on top of a Level 1 item only ---
+      // Level 0 items on the ground do NOT support Level 2.
+      const supportPlacement =
+        zonePlacements.find(({ definition: placedDef, placement }) => {
+          if (placedDef.level !== 1) return false;
+          // Ensure this Level 1 slot doesn't already have a Level 2 on top
+          const alreadyStacked = zonePlacements.some(
+            ({ definition: stackedDef, placement: stackedPlacement }) =>
+              stackedDef.level === 2 &&
+              stackedPlacement.x === placement.x &&
+              stackedPlacement.z === placement.z
+          );
+          return !alreadyStacked;
+        }) ?? null;
 
-    if (definition.level > 0 && lowerLevelPlacement) {
+      if (!supportPlacement) {
+        // No Level 1 base available — show a helpful modal
+        setShowNoBaseModal(true);
+        return;
+      }
+
       const createdId = `${definitionId}-${crypto.randomUUID()}`;
-      const lowerScale = lowerLevelPlacement.placement.scale;
-      // Use the logical slot height (definition.size.height) — NOT the raw 3D bounding-box
-      // height — so level-1 items land just above the counter surface rather than at ceiling.
-      const lowerHeight = lowerLevelPlacement.definition.size.height;
+      const lowerScale = supportPlacement.placement.scale;
+      const lowerHeight = supportPlacement.definition.size.height;
 
       setPlaced((current) => [
         ...current,
         {
           id: createdId,
           definitionId,
-          zoneId: lowerLevelPlacement.zone.id,
+          zoneId: supportPlacement.zone.id,
           manualPlacement: {
-            x: lowerLevelPlacement.placement.x,
-            y: lowerLevelPlacement.placement.y + lowerHeight * lowerScale,
-            z: lowerLevelPlacement.placement.z,
-            rotationY: lowerLevelPlacement.placement.rotationY
+            x: supportPlacement.placement.x,
+            y: supportPlacement.placement.y + lowerHeight * lowerScale,
+            z: supportPlacement.placement.z,
+            rotationY: supportPlacement.placement.rotationY
           }
         }
       ]);
@@ -325,16 +498,25 @@ function App() {
       return;
     }
 
+    // --- LEVEL 0 and LEVEL 1: both placed on the ground ---
+    // They treat each other as obstacles so they never overlap on the ground.
+    // Neither floats — they both land at zone.lineY.
     const startPoint =
       zone.length >= zone.width
         ? new Vector3(zone.x, zone.lineY, zone.z + zone.length / 2)
         : new Vector3(zone.x + zone.width / 2, zone.lineY, zone.z);
+
+    // All ground-level items (level 0 AND level 1) are obstacles for each other
+    const groundObstaclePlacements = placements.filter(
+      ({ definition: placedDef }) => placedDef.level === 0 || placedDef.level === 1
+    );
+
     const placement = resolveNonIntersectingPlacement(
       zone,
       definition,
       definition.id,
       startPoint,
-      placements,
+      groundObstaclePlacements,
       measuredFootprints
     );
 
@@ -618,6 +800,16 @@ function App() {
     }
   }, [equipmentSideMenus.length, selectedStepId]);
 
+  // Loading Overlay Component
+  const LoadingOverlay = () => (
+    <div className={`loading-overlay ${isLoading ? "active" : ""}`}>
+      <img src="/Images/loader.gif" alt="Loading..." />
+      <p>Loading your food truck...</p>
+    </div>
+  );
+
+
+
   function applyTrailerSize(trailerSize: TrailerSize) {
     setSelectedTrailerSizeId(trailerSize.id);
     setSelectedEquipmentId(null);
@@ -717,10 +909,10 @@ function App() {
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
-              <span className="brand-mark" aria-hidden="true" />
-              <h1>Food Trailers</h1>
+              {/* <span className="brand-mark" aria-hidden="true" /> */}
+              <img src="/Images/FoodTrailer.png" />
+              <img src="/Images/ikarus.png"/>
             </div>
-            <p>Powered by Ikarus Delta</p>
           </div>
         </div>
 
@@ -752,6 +944,7 @@ function App() {
               onViewportEquipmentChange={updatePlacedDefinition}
               onMeasuredFootprintsChange={setMeasuredFootprints}
               onSwapPlaced={swapPlacedWithNeighbor}
+              onLoadingChange={setIsLoading}
             />
         </div>
 
@@ -797,6 +990,70 @@ function App() {
           ))}
         </nav>
       </main>
+
+      {/* No-base-model warning modal */}
+      {showNoBaseModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="no-base-modal-title"
+          onClick={() => setShowNoBaseModal(false)}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">⚠️</div>
+            <h3 id="no-base-modal-title">Base Model Required</h3>
+            <p>
+              This item must be placed on top of a <strong>base model (Level 1)</strong>.
+              Please add a base model to the zone first, then add this item on top of it.
+            </p>
+            <button
+              type="button"
+              className="modal-dismiss-btn"
+              onClick={() => setShowNoBaseModal(false)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Level-1 + stacked Level-2 delete confirmation modal */}
+      {deleteConfirmState && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          onClick={() => setDeleteConfirmState(null)}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">🗑️</div>
+            <h3 id="delete-confirm-title">Remove Stacked Models?</h3>
+            <p>
+              This <strong>base model (Level 1)</strong> has{" "}
+              <strong>{deleteConfirmState.level2Ids.length} item{deleteConfirmState.level2Ids.length > 1 ? "s" : ""}</strong>{" "}
+              placed on top of it. Removing it will also delete the stacked model{deleteConfirmState.level2Ids.length > 1 ? "s" : ""}.
+            </p>
+            <div className="modal-action-row">
+              <button
+                type="button"
+                className="modal-cancel-btn"
+                onClick={() => setDeleteConfirmState(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="modal-confirm-btn"
+                onClick={confirmDeleteWithCascade}
+              >
+                Remove All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <aside className="inspector-panel">
         <div className="inspector-header">
@@ -1188,6 +1445,7 @@ function App() {
           </div>
         </div>
       ) : null}
+      <LoadingOverlay />
     </div>
   );
 }
