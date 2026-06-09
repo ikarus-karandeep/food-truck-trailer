@@ -1296,7 +1296,7 @@ function App() {
             Build Summary
           </button>
           <button type="button" className="icon-action-button" aria-label="Save build">
-            <img src="public/Images/Save.png" className="icon-action-button-img"/>
+            <img src="Images/Save.png" className="icon-action-button-img"/>
           </button>
         </div>
       </aside>
