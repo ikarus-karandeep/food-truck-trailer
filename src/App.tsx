@@ -1031,7 +1031,7 @@ function App() {
                     <img src="/Images/StoreandDispense.png" alt={item.title} />
                   </div>
                   <div className="addon-card-info">
-                    <strong>{item.title}</strong>
+                    <p>{item.title}</p>
                   </div>
                   <div className="addon-card-actions">
                     <button type="button" className="circle-btn"><img src="/Images/Plus.png" alt="add"/></button>
