@@ -1,4 +1,4 @@
-import { Clone, useGLTF, Html, Line } from "@react-three/drei";
+import { Clone, useGLTF, Html, Line, useTexture } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 import { Box3, Vector3, Mesh, Euler, Quaternion } from "three";
 
@@ -52,16 +52,63 @@ function DimensionAnnotation({ start, end, label, labelOffset }: { start: Vector
   );
 }
 
+const CUSTOMIZATION_TEXTURES: Record<string, Record<number, Record<string, string>>> = {
+  coffee: {
+    16: {
+      A: "/Textures/16ft_Coffee_A.png",
+      B: "/Textures/16ft_Coffee_B.png",
+      C: "/Textures/16ft_Coffee_C.png",
+      D: "/Textures/16ft_Coffee_D.png",
+    },
+    30: {
+      A: "/Textures/30ft_Coffee_Side_A-scaled.png",
+      B: "/Textures/30ft_Coffee_Side_B-scaled.png",
+      C: "/Textures/30ft_Coffee_Side_C-1.png",
+      D: "/Textures/30ft_Coffee_Side_D-1.png",
+    }
+  },
+  sushi: {
+    16: {
+      A: "/Textures/16ft_Sushi_Side_A.png",
+      B: "/Textures/16ft_Sushi_Side_B.png",
+      C: "/Textures/16ft_Sushi_Side_C.png",
+      D: "/Textures/16ft_Sushi_Side_D.png",
+    },
+    30: { // Fallback for 30ft
+      A: "/Textures/16ft_Sushi_Side_A.png",
+      B: "/Textures/16ft_Sushi_Side_B.png",
+      C: "/Textures/16ft_Sushi_Side_C.png",
+      D: "/Textures/16ft_Sushi_Side_D.png",
+    }
+  },
+  taco: {
+    30: {
+      A: "/Textures/30ft_Taco_Side_A-scaled.png",
+      B: "/Textures/30ft_Taco_Side_B-scaled.png",
+      C: "/Textures/30ft_Taco_Side_C.png",
+      D: "/Textures/30ft_Taco_D.png",
+    },
+    16: { // Fallback for 16ft
+       A: "/Textures/30ft_Taco_Side_A-scaled.png",
+       B: "/Textures/30ft_Taco_Side_B-scaled.png",
+       C: "/Textures/30ft_Taco_Side_C.png",
+       D: "/Textures/30ft_Taco_D.png",
+    }
+  }
+};
+
 function VisibleStageModel({
   src,
   rotationY = 0,
   onLoad,
-  showMeasurements
+  showMeasurements,
+  selectedCustomizationId
 }: {
   src: string;
   rotationY?: number;
   onLoad?: () => void;
   showMeasurements?: boolean;
+  selectedCustomizationId?: string;
 }) {
   const gltf = useGLTF(src);
 
@@ -69,7 +116,79 @@ function VisibleStageModel({
     if (onLoad) onLoad();
   }, [onLoad, src]);
 
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  // Texture loading
+  const trailerSize = src.includes("16") ? 16 : src.includes("30") ? 30 : 16;
+  const designTextures = selectedCustomizationId ? CUSTOMIZATION_TEXTURES[selectedCustomizationId]?.[trailerSize] : null;
+
+  const textures = useTexture(
+    designTextures 
+      ? {
+          A: designTextures.A,
+          B: designTextures.B,
+          C: designTextures.C,
+          D: designTextures.D
+        }
+      : { A: "/Textures/16ft_Coffee_A.png", B: "/Textures/16ft_Coffee_A.png", C: "/Textures/16ft_Coffee_A.png", D: "/Textures/16ft_Coffee_A.png" } // Fallback
+  );
+
+  const scene = useMemo(() => {
+    const cloned = gltf.scene.clone(true);
+    
+    cloned.traverse((child: any) => {
+      if (child.isMesh) {
+        const mesh = child as Mesh;
+        const name = mesh.name.toLowerCase();
+        
+        const isWrapMesh = name.includes("wrap") && name.includes("image");
+        const isSideMesh = name.includes("side") && (name.includes("right") || name.includes("left") || name.includes("front") || name.includes("back"));
+        
+        const isTargetMesh = isWrapMesh || isSideMesh;
+
+        if (isTargetMesh) {
+          let sideTexture = null;
+          if (name.includes("right")) sideTexture = textures.A;
+          else if (name.includes("left")) sideTexture = textures.B;
+          else if (name.includes("front")) sideTexture = textures.C;
+          else if (name.includes("back")) sideTexture = textures.D;
+
+          if (sideTexture && selectedCustomizationId && selectedCustomizationId !== "no-wrap") {
+            const applyToMaterial = (mat: any) => {
+                const newMat = mat.clone();
+                newMat.map = sideTexture;
+                newMat.map.flipY = false; 
+                newMat.needsUpdate = true;
+                if (newMat.color) newMat.color.set("white"); 
+                newMat.polygonOffset = true;
+                newMat.polygonOffsetFactor = -4;
+                newMat.polygonOffsetUnits = -4;
+                newMat.transparent = false;
+                newMat.opacity = 1;
+                return newMat;
+            };
+
+            if (Array.isArray(mesh.material)) {
+              mesh.material = mesh.material.map(applyToMaterial);
+            } else {
+              mesh.material = applyToMaterial(mesh.material);
+            }
+            
+            mesh.visible = true; 
+            mesh.renderOrder = 10;
+          } else {
+            if (isWrapMesh) {
+              mesh.visible = false;
+            } else if (isSideMesh) {
+              mesh.visible = true;
+            }
+          }
+        }
+      }
+    });
+
+    return cloned;
+  }, [gltf.scene, selectedCustomizationId, textures, trailerSize]);
+
+
   const metrics = useMemo(() => {
     scene.updateWorldMatrix(true, true);
     const combinedBox = new Box3();
@@ -162,17 +281,19 @@ export default function StageModel({
   src,
   rotationY = 0,
   onLoad,
-  showMeasurements
+  showMeasurements,
+  selectedCustomizationId
 }: {
   src: string | null;
   rotationY?: number;
   onLoad?: () => void;
   showMeasurements?: boolean;
+  selectedCustomizationId?: string;
 }) {
   if (!src) {
     return null;
   }
 
-  return <VisibleStageModel src={src} rotationY={rotationY} onLoad={onLoad} showMeasurements={showMeasurements} />;
+  return <VisibleStageModel src={src} rotationY={rotationY} onLoad={onLoad} showMeasurements={showMeasurements} selectedCustomizationId={selectedCustomizationId} />;
 }
 

@@ -8,6 +8,7 @@ import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Group, OrthographicCamera, PerspectiveCamera, Raycaster, Vector2, Vector3 } from "three";
 import DropZoneModel from "./scene/DropZoneModel";
+import PlaceholderSlots from "./scene/PlaceholderSlots";
 import { DragPreviewEquipmentVisual, EquipmentVisual } from "./scene/EquipmentVisual";
 import StageModel from "./scene/StageModel";
 import ViewportControls from "./scene/ViewportControls";
@@ -52,6 +53,7 @@ type BuilderSceneProps = {
   onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
   onLoadingChange: (loading: boolean) => void;
   showMeasurements?: boolean;
+  selectedCustomizationId?: string;
 };
 
 
@@ -74,7 +76,8 @@ export default function BuilderScene({
   onMeasuredFootprintsChange,
   onSwapPlaced,
   onLoadingChange,
-  showMeasurements
+  showMeasurements,
+  selectedCustomizationId
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
@@ -339,6 +342,7 @@ export default function BuilderScene({
               rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0}
               onLoad={() => setStageLoading(false)}
               showMeasurements={showMeasurements}
+              selectedCustomizationId={selectedCustomizationId}
             />
           </Suspense>
           <Suspense fallback={null}>
@@ -353,6 +357,12 @@ export default function BuilderScene({
               onLoad={() => setDropZoneLoading(false)}
             />
           </Suspense>
+
+          <PlaceholderSlots
+            zones={droppableZones}
+            placements={placements}
+            measuredFootprints={measuredFootprints}
+          />
 
           {draggingEquipment && dragPreviewPlacement ? (
             <Suspense fallback={null}>

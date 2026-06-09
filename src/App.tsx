@@ -59,6 +59,7 @@ function App() {
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(false);
+  const [selectedCustomizationId, setSelectedCustomizationId] = useState<string>("no-wrap");
 
   useEffect(() => {
     try {
@@ -1036,6 +1037,9 @@ function App() {
   function renderTrailerCustomizationPanel() {
     const designExamples = [
       { id: "no-wrap", name: "No Wrap", image: "/Images/no-wrap.png" },
+      { id: "coffee", name: "Coffee", image: "/Images/coffee.png" },
+      { id: "taco", name: "Taco", image: "/Images/Taco.png" },
+      { id: "sushi", name: "Sushi", image: "/Images/sushi.png" },
       { id: "burger", name: "Burger", image: "/Images/burger.png" },
       { id: "hot-dog", name: "Hot Dog", image: "/Images/hot-dog.png" },
       { id: "ice-cream", name: "Ice Cream", image: "/Images/ice-cream.png" },
@@ -1045,9 +1049,6 @@ function App() {
       { id: "pizza", name: "Pizza", image: "/Images/pizza.png" },
       { id: "sandwich", name: "Sandwich", image: "/Images/sandwich.png" },
       { id: "shawarma", name: "Shawarma",image: "/Images/shawarma.png" },
-      { id: "coffee", name: "Coffee", image: "/Images/coffee.png" },
-      { id: "sushi", name: "Sushi", image: "/Images/sushi.png" },
-      { id: "taco", name: "Taco", image: "/Images/Taco.png" },
       { id: "matcha", name: "Matcha", image: "/Images/matcha.png"},
       { id: "waffles", name: "Belgian Waffles", image: "/Images/Belgian-waffles.png" },
       { id: "donut", name: "Donut", image: "/Images/ice-cream.png" }
@@ -1095,7 +1096,8 @@ function App() {
                 <button
                   key={design.id}
                   type="button"
-                  className="design-example-card"
+                  className={`design-example-card${selectedCustomizationId === design.id ? " active" : ""}`}
+                  onClick={() => setSelectedCustomizationId(design.id)}
                 >
                   {/* <span className="design-example-icon">{design.image}</span> */}
                   <img src={design.image} className="design-example-icon"/>
@@ -1169,6 +1171,7 @@ function App() {
               onSwapPlaced={swapPlacedWithNeighbor}
               onLoadingChange={setIsLoading}
               showMeasurements={showMeasurements}
+              selectedCustomizationId={selectedCustomizationId}
             />
         </div>
 
