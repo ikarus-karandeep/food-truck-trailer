@@ -326,7 +326,7 @@ export default function BuilderScene({
       }}
     >
       <Canvas
-        camera={{ position: [15, 10, 15], fov: 34 }}
+        camera={{ position: [10, 8, 10], fov: 34 }}
         dpr={[1, 1.5]}
         shadows
         gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -455,6 +455,7 @@ export default function BuilderScene({
           enablePan
           enableZoom
           enableRotate
+          zoomSpeed={1.2}
           minAzimuthAngle={
             selectedStepId === "equipment-side" ? -0.35
             : selectedStepId === "serving-side" ? -0.35
@@ -475,8 +476,8 @@ export default function BuilderScene({
               ? Math.PI / 2
               : Math.PI
           }
-          minDistance={2.5}
-          maxDistance={40}
+          minDistance={1.2}
+          maxDistance={80}
         />
       </Canvas>
     </div>
