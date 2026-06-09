@@ -771,6 +771,29 @@ button {
   background: #111827;
 }
 
+.trailer-card__footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.trailer-card__footer .continue-button {
+  width: 100%;
+  height: 56px;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(17, 24, 39, 0.14);
+  border: none;
+}
+
 .control-section {
   margin-top: 18px;
   padding: clamp(14px, 1.5vw, 18px);
@@ -1143,6 +1166,28 @@ button {
   gap: 14px;
   padding: 0 24px 20px;
   background: #f4f4f3;
+}
+
+/* Continue button shown after selecting a trailer type */
+.continue-button {
+  width: 100%;
+  height: 56px;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(17, 24, 39, 0.14);
+}
+
+.continue-arrow {
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
 .catalog-page .sticky-action-bar,

@@ -29,6 +29,18 @@ function App() {
   const [buildSummaryTab, setBuildSummaryTab] = useState<number>(3);
   const [selectedTrailerSizeId, setSelectedTrailerSizeId] =
     useState<TrailerSize["id"]>("size-16");
+  // `displayedTrailerSizeId` controls which 3D model is shown in the scene.
+  // We keep it separate so selecting a trailer *type* (picker card) doesn't
+  // immediately swap the visual model — the model only changes when the
+  // user confirms a size in the `size-specs` step.
+  const [displayedTrailerSizeId, setDisplayedTrailerSizeId] =
+    useState<TrailerSize["id"]>("size-16");
+  const [hasChosenTrailerType, setHasChosenTrailerType] = useState<boolean>(false);
+  // `selectedTrailerCardId` tracks which trailer card (type) the user selected
+  // in the Trailer Type picker. It is separate from the committed size
+  // (`selectedTrailerSizeId`) so changing the card does not change the model.
+  const [selectedTrailerCardId, setSelectedTrailerCardId] =
+    useState<TrailerSize["id"]>("size-16");
   const [placed, setPlaced] = useState<PlacedEquipment[]>([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null);
   const [draggingEquipmentId, setDraggingEquipmentId] = useState<string | null>(null);
@@ -46,6 +58,43 @@ function App() {
     Record<string, MeasuredFootprint>
   >({});
   const [isLoading, setIsLoading] = useState(true);
+  const [showMeasurements, setShowMeasurements] = useState(false);
+
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const buildParam = urlParams.get('build');
+      if (buildParam) {
+        const decoded = JSON.parse(atob(buildParam));
+        if (decoded.selectedTrailerSizeId) {
+          setSelectedTrailerSizeId(decoded.selectedTrailerSizeId);
+          setDisplayedTrailerSizeId(decoded.selectedTrailerSizeId);
+          setSelectedTrailerCardId(decoded.selectedTrailerSizeId);
+        }
+        if (decoded.placed && Array.isArray(decoded.placed)) {
+          setPlaced(decoded.placed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse build configuration from URL", e);
+    }
+  }, []);
+
+  function handleSaveBuild() {
+    const stateToSave = {
+      selectedTrailerSizeId,
+      placed
+    };
+    try {
+      const encoded = btoa(JSON.stringify(stateToSave));
+      const newUrl = window.location.origin + window.location.pathname + '?build=' + encoded;
+      navigator.clipboard.writeText(newUrl).then(() => {
+        alert("Link copied to clipboard! You can use this link to resume your build later.");
+      });
+    } catch (e) {
+      console.error("Failed to save build to URL", e);
+    }
+  }
 
   const allZones = useMemo(() => buildZones(dropZoneBoundsMap), [dropZoneBoundsMap]);
 
@@ -77,6 +126,16 @@ function App() {
       trailerSizes.find((trailerSize) => trailerSize.id === selectedTrailerSizeId) ??
       trailerSizes[0],
     [selectedTrailerSizeId]
+  );
+
+  const selectedTrailerCard = useMemo(
+    () => trailerSizes.find((t) => t.id === selectedTrailerCardId) ?? trailerSizes[0],
+    [selectedTrailerCardId]
+  );
+
+  const displayedTrailerSize = useMemo(
+    () => trailerSizes.find((t) => t.id === displayedTrailerSizeId) ?? trailerSizes[0],
+    [displayedTrailerSizeId]
   );
 
   const placements = useMemo<PlacementView[]>(
@@ -128,6 +187,16 @@ function App() {
 
     const horizontal = zone.length >= zone.width;
 
+    const targetedItems = items.filter((item) => {
+      const def = equipmentMap[item.definitionId];
+      return def && item.zoneId === zoneId && levels.includes(def.level);
+    });
+
+    const allMeasured = targetedItems.every(item => !!measuredFootprints[item.id]);
+    if (!allMeasured && targetedItems.length > 0) {
+      return items;
+    }
+
     const peers = items
       .map((item) => {
         const def = equipmentMap[item.definitionId];
@@ -138,9 +207,8 @@ function App() {
           ? (item.manualPlacement?.z ?? zone.z)
           : (item.manualPlacement?.x ?? zone.x);
         const footprint = measuredFootprints[item.id];
-        const halfSize = (footprint
-          ? (horizontal ? footprint.length : footprint.width)
-          : (horizontal ? def.size.length : def.size.width)) / 2;
+        // We know footprint exists because of the allMeasured check above
+        const halfSize = (horizontal ? footprint!.length : footprint!.width) / 2;
         return { item, def, axisPos, halfSize };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
@@ -685,16 +753,17 @@ function App() {
     setEditingPlacedId(null);
   }
 
+  // Use the displayed trailer selection to decide which GLB to show. This
+  // prevents the model from changing immediately when the logical trailer
+  // type is changed in the `size` picker; the display only updates when
+  // `displayedTrailerSizeId` is updated (for example from the Size & Specs panel).
   const activeStageModelSrc = useMemo(
-    () =>
-      selectedTrailerSize.stageModels[selectedStepId] ??
-      selectedTrailerSize.stageModels.size ??
-      null,
-    [selectedStepId, selectedTrailerSize]
+    () => displayedTrailerSize.stageModels[selectedStepId] ?? displayedTrailerSize.stageModels.size ?? null,
+    [selectedStepId, displayedTrailerSize]
   );
   const activeDropZoneModelSrc = useMemo(
-    () => selectedTrailerSize.dropZoneModels?.[selectedStepId] ?? null,
-    [selectedStepId, selectedTrailerSize]
+    () => displayedTrailerSize.dropZoneModels?.[selectedStepId] ?? null,
+    [selectedStepId, displayedTrailerSize]
   );
 
   // Stable callback so DropZoneModel's useEffect doesn't re-fire every render
@@ -812,7 +881,10 @@ function App() {
 
 
   function applyTrailerSize(trailerSize: TrailerSize) {
-    setSelectedTrailerSizeId(trailerSize.id);
+    // When the user clicks a trailer card, only update the card selection.
+    // Do not change the committed size or the displayed model here.
+    setSelectedTrailerCardId(trailerSize.id);
+    setHasChosenTrailerType(true);
     setSelectedEquipmentId(null);
     setSelectedPlacedId(null);
     setEditingPlacedId(null);
@@ -1096,6 +1168,7 @@ function App() {
               onMeasuredFootprintsChange={setMeasuredFootprints}
               onSwapPlaced={swapPlacedWithNeighbor}
               onLoadingChange={setIsLoading}
+              showMeasurements={showMeasurements}
             />
         </div>
 
@@ -1107,8 +1180,13 @@ function App() {
             <button className="toolbar-icon-chip" type="button" aria-label="Gallery view">
               <img src="/Images/env.png" className="w-10 h-10" />
             </button>
-            <button className="toolbar-icon-chip" type="button" aria-label="Draw view">
-              <img src="/Images/measurement.png" className="w-10 h-10" />
+            <button 
+              className={`toolbar-icon-chip ${showMeasurements ? "active" : ""}`} 
+              type="button" 
+              aria-label="Draw view"
+              onClick={() => setShowMeasurements(current => !current)}
+            >
+              <img src="Images/measurement.png" className="w-10 h-10" />
             </button>
             <button className="view-overview-button" type="button">
               View In Your Driveway
@@ -1120,7 +1198,7 @@ function App() {
               {totalItems} items placed
             </button>
             <button className="toolbar-chip" type="button">
-              {selectedTrailerSize.label} selected
+              {selectedTrailerCard.label} selected
             </button>
             <button className="toolbar-chip wide" type="button">
               {selectedItemLabel}
@@ -1224,7 +1302,7 @@ function App() {
           {selectedStepId === "size" ? (
             <section className="trailer-card-list">
               {trailerSizes.map((trailerSize) => {
-                const isActive = trailerSize.id === selectedTrailerSize.id;
+                const isActive = trailerSize.id === selectedTrailerCardId;
                 const isLargeTrailer = trailerSize.id === "size-30";
                 const cardTitle = isLargeTrailer ? "Hot Food Service" : "Store & Dispense";
                 const cardDescription = isLargeTrailer
@@ -1235,9 +1313,10 @@ function App() {
                   : ["Cold Storage", "Enhanced Insulation", "Energy Efficient"];
 
                 return (
-                  <button
+                  <div
                     key={trailerSize.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className={`trailer-card${isActive ? " active" : ""}`}
                     style={
                       {
@@ -1245,6 +1324,10 @@ function App() {
                         "--card-accent-soft": trailerSize.accentSoft
                       } as CSSProperties
                     }
+                    onClick={() => applyTrailerSize(trailerSize)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") applyTrailerSize(trailerSize);
+                    }}
                   >
                     <div className="trailer-card__meta size-card__meta">
                       <span className="price-pill">Base Price : $99,999</span>
@@ -1271,7 +1354,22 @@ function App() {
                         ))}
                       </ul>
                     </div>
-                  </button>
+
+                    {isActive ? (
+                      <div className="trailer-card__footer">
+                        <button
+                          type="button"
+                          className="continue-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStepId("size-specs");
+                          }}
+                        >
+                          Continue <span className="continue-arrow">→</span>
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </section>
@@ -1333,11 +1431,9 @@ function App() {
                       disabled={!sizeOption.enabled}
                       onClick={() => {
                         if (sizeOption.trailerSizeId) {
-                          applyTrailerSize(
-                            trailerSizes.find(
-                              (trailerSize) => trailerSize.id === sizeOption.trailerSizeId
-                            ) ?? trailerSizes[0]
-                          );
+                          // Commit the chosen size — this controls selection and the scene model
+                          setSelectedTrailerSizeId(sizeOption.trailerSizeId);
+                          setDisplayedTrailerSizeId(sizeOption.trailerSizeId!);
                         }
                       }}
                     >
@@ -1456,8 +1552,8 @@ function App() {
           <button type="button" className="summary-button" onClick={() => setShowBuildSummary(true)}>
             Build Summary
           </button>
-          <button type="button" className="icon-action-button" aria-label="Save build">
-            <img src="Images/Save.png" className="icon-action-button-img"/>
+          <button type="button" className="icon-action-button" aria-label="Save build" onClick={handleSaveBuild}>
+            <img src="public/images/Save.png" className="icon-action-button-img"/>
           </button>
         </div>
       </aside>
@@ -1481,7 +1577,7 @@ function App() {
                   </div>
                 </div>
               <div className="summary-trailer-info">
-                 <span className="summary-trailer-type">{selectedTrailerSize.id === "size-30" ? "HOT FOOD SERVICE TRAILER" : "CONCESSION TRAILER"}</span>
+                 <span className="summary-trailer-type">{selectedTrailerCard.id === "size-30" ? "HOT FOOD SERVICE TRAILER" : "CONCESSION TRAILER"}</span>
                  <strong className="summary-trailer-price">${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
               </div>
             </div>
@@ -1502,9 +1598,9 @@ function App() {
               {buildSummaryTab === 1 && (
                  <div className="summary-equipments">
                     <div className="size-summary-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                       <h3 style={{ fontSize: '18px', margin: 0 }}>{selectedTrailerSize.id === "size-30" ? "Hot Food Service" : "Store & Dispense"}</h3>
-                       <p style={{ margin: 0, color: 'var(--text-soft)' }}>
-                          {selectedTrailerSize.id === "size-30" ? "Built for cooking-focused menus with room for heavier kitchen equipment." : "Ideal for businesses focused on ice-creams, drinks and display."}
+                        <h3 style={{ fontSize: '18px', margin: 0 }}>{selectedTrailerCard.id === "size-30" ? "Hot Food Service" : "Store & Dispense"}</h3>
+                        <p style={{ margin: 0, color: 'var(--text-soft)' }}>
+                          {selectedTrailerCard.id === "size-30" ? "Built for cooking-focused menus with room for heavier kitchen equipment." : "Ideal for businesses focused on ice-creams, drinks and display."}
                        </p>
                     </div>
                  </div>

@@ -34,16 +34,14 @@ function MeasuredDropZoneModel({
   const metrics = useMemo(() => {
     const referenceBounds = new Box3().setFromObject(referenceScene);
     const referenceCenter = referenceBounds.getCenter(new Vector3());
-    const referenceSize = referenceBounds.getSize(new Vector3());
-    const longestSide = Math.max(referenceSize.x, referenceSize.y, referenceSize.z, 1);
-    const scale = 4.6 / longestSide;
+    const scale = 1;
 
     return {
       scale,
       offset: {
-        x: -referenceCenter.x * scale,
-        y: -referenceBounds.min.y * scale,
-        z: -referenceCenter.z * scale
+        x: -referenceCenter.x,
+        y: -referenceCenter.y,
+        z: -referenceCenter.z
       }
     };
   }, [referenceScene]);

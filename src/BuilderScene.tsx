@@ -51,6 +51,7 @@ type BuilderSceneProps = {
   onMeasuredFootprintsChange: (footprints: Record<string, MeasuredFootprint>) => void;
   onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
   onLoadingChange: (loading: boolean) => void;
+  showMeasurements?: boolean;
 };
 
 
@@ -72,7 +73,8 @@ export default function BuilderScene({
   onViewportEquipmentChange,
   onMeasuredFootprintsChange,
   onSwapPlaced,
-  onLoadingChange
+  onLoadingChange,
+  showMeasurements
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
@@ -312,7 +314,7 @@ export default function BuilderScene({
       }}
     >
       <Canvas
-        camera={{ position: [7.8, 4.9, 7.1], fov: 34 }}
+        camera={{ position: [15, 10, 15], fov: 34 }}
         dpr={[1, 1.5]}
         shadows
         gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -324,7 +326,7 @@ export default function BuilderScene({
         <Environment files="/neutral.hdr" environmentIntensity={0.68} />
         <hemisphereLight intensity={0.52} color="#ffffff" groundColor="#cfcfc8" />
         <directionalLight
-          position={[8, 11, 6]}
+          position={[20, 30, 15]}
           intensity={1.65}
           castShadow
           shadow-mapSize-width={2048}
@@ -336,6 +338,7 @@ export default function BuilderScene({
               src={activeStageModelSrc}
               rotationY={activeStageModelSrc?.includes("16-serving") ? Math.PI : 0}
               onLoad={() => setStageLoading(false)}
+              showMeasurements={showMeasurements}
             />
           </Suspense>
           <Suspense fallback={null}>
@@ -451,8 +454,8 @@ export default function BuilderScene({
               ? Math.PI / 2
               : Math.PI
           }
-          minDistance={4.5}
-          maxDistance={12}
+          minDistance={2.5}
+          maxDistance={40}
         />
       </Canvas>
     </div>
