@@ -878,9 +878,9 @@ function App() {
                   <span>{equipment.name}</span>
 
                   <div className="quantity-controls" onClick={e => e.stopPropagation()}>
-                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="public/images/Minus.png" /> </button>
+                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="public/Images/Minus.png" /> </button>
                     <span className="quantity-value">{placedCount}</span>
-                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="public/images/Plus.png" /></button>
+                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="public/Images/Plus.png" /></button>
                   </div>
                 </div>
               )})}
@@ -905,7 +905,7 @@ function App() {
       <main className="experience-shell">
         <div className="brand-bar">
           <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
-            <img src="public/images/Back.png" />
+            <img src="public/Images/Back.png" />
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
@@ -951,13 +951,13 @@ function App() {
         {selectedStepId === "size" || isSpecsPage || isCatalogPage ? (
           <div className="stage-toolbar size-view-toolbar">
             <button className="toolbar-icon-chip" type="button" aria-label="Preview view">
-              <img src="Images/eye.png" className="w-10 h-10" />
+              <img src="/Images/eye.png" className="w-10 h-10" />
             </button>
             <button className="toolbar-icon-chip" type="button" aria-label="Gallery view">
-              <img src="Images/env.png" className="w-10 h-10" />
+              <img src="/Images/env.png" className="w-10 h-10" />
             </button>
             <button className="toolbar-icon-chip" type="button" aria-label="Draw view">
-              <img src="Images/measurement.png" className="w-10 h-10" />
+              <img src="/Images/measurement.png" className="w-10 h-10" />
             </button>
             <button className="view-overview-button" type="button">
               View In Your Driveway
@@ -1296,7 +1296,7 @@ function App() {
             Build Summary
           </button>
           <button type="button" className="icon-action-button" aria-label="Save build">
-            <img src="public/images/Save.png" className="icon-action-button-img"/>
+            <img src="public/Images/Save.png" className="icon-action-button-img"/>
           </button>
         </div>
       </aside>
