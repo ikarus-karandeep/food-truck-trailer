@@ -76,6 +76,9 @@ function App() {
         if (decoded.placed && Array.isArray(decoded.placed)) {
           setPlaced(decoded.placed);
         }
+          if (decoded.selectedCustomizationId) {
+            setSelectedCustomizationId(decoded.selectedCustomizationId);
+          }
       }
     } catch (e) {
       console.error("Failed to parse build configuration from URL", e);
@@ -85,7 +88,8 @@ function App() {
   function handleSaveBuild() {
   const stateToSave = {
     selectedTrailerSizeId,
-    placed
+    placed,
+    selectedCustomizationId
   };
   try {
     const encoded = btoa(JSON.stringify(stateToSave));
