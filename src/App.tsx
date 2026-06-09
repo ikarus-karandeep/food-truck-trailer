@@ -16,6 +16,7 @@ import type {
 } from "./types";
 
 import BuilderScene from "./BuilderScene";
+import { label } from "three/tsl";
 
 function parsePrice(priceStr: string | undefined): number {
   if (!priceStr) return 0;
@@ -783,13 +784,13 @@ function App() {
         return {
           title: "Add-ons & Utility",
           description: "Add-on and utility options will appear here.",
-          info: "This step is not active yet."
+          info: ""
         };
       case "trailer-customization":
         return {
           title: "Trailer Customization",
           description: "Trailer customization options will appear here.",
-          info: "This step is not active yet."
+          info: ""
         };
       default:
         return {
@@ -891,8 +892,158 @@ function App() {
     );
   }
 
+  function renderAddonsPanel() {
+    const addonGroups = [
+      {
+        id: "addons-audio",
+        label: "Audio & Communication",
+        items: [
+          { id: "buzzer-kit", title: "Buzzer Kit", image: "/Images/env.png" },
+          { id: "sound-system", title: "Sound system", image: "/Images/env.png" }
+        ]
+      },
+      {
+        id: "addons-exterior",
+        label: "Exterior & Utility",
+        items: [
+          { id: "awning", title: "Awning", image: "/Images/env.png" },
+          { id: "storage-box", title: "Storage Box", image: "/Images/env.png" }
+        ]
+      },
+      {
+        id: "addons-power",
+        label: "Power & Generators",
+        items: [
+          { id: "generators", title: "Generators", image: "/Images/StoreandDispense.png" }
+        ]
+      },
+      {
+        id:"addons-power",
+        label:"Security & Monitoring",
+        items:[
+          {id:"Security", title:"Security Camera Kit"}
+        ]
+      }
+    ];
+
+    return (
+      <section className="addons-list">
+        {/* <p className="addons-intro">Every food trailer has its distinct features and requirements. Add those extra touches that can elevate your trailer's functionality and security.</p> */}
+        {addonGroups.map((group) => (
+          <div key={group.id} className="addon-section">
+            <div className="addon-section-heading">
+              <h4>{group.label}</h4>
+              {/* <div className="addon-section-meta">
+                <button className="addon-toggle" aria-label="Expand">▾</button>
+              </div> */}
+            </div>
+
+            <div className="addon-section-body">
+              {group.items.map((item) => (
+                <div key={item.id} className="addon-card">
+                  <div className="addon-card-visual">
+                    <img src="/Images/StoreandDispense.png" alt={item.title} />
+                  </div>
+                  <div className="addon-card-info">
+                    <strong>{item.title}</strong>
+                  </div>
+                  <div className="addon-card-actions">
+                    <button type="button" className="circle-btn"><img src="/Images/Plus.png" alt="add"/></button>
+                    {/* <button type="button" className="circle-btn small">&#9998;</button>
+                    <button type="button" className="circle-btn small danger"><img src="/Images/Delete.png" alt="delete"/></button> */}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+    );
+  }
+
+  function renderTrailerCustomizationPanel() {
+    const designExamples = [
+      { id: "no-wrap", name: "No Wrap", image: "/Images/no-wrap.png" },
+      { id: "burger", name: "Burger", image: "/Images/burger.png" },
+      { id: "hot-dog", name: "Hot Dog", image: "/Images/hot-dog.png" },
+      { id: "ice-cream", name: "Ice Cream", image: "/Images/ice-cream.png" },
+      { id: "lemonade", name: "Lemonade", image: "/Images/lemonade.png" },
+      { id: "bbq", name: "BBQ", image: "/Images/bbq.png" },
+      { id: "bubble-tea", name: "Bubble Tea", image: "/Images/bubble_tea.png" },
+      { id: "pizza", name: "Pizza", image: "/Images/pizza.png" },
+      { id: "sandwich", name: "Sandwich", image: "/Images/sandwich.png" },
+      { id: "shawarma", name: "Shawarma",image: "/Images/shawarma.png" },
+      { id: "coffee", name: "Coffee", image: "/Images/coffee.png" },
+      { id: "sushi", name: "Sushi", image: "/Images/sushi.png" },
+      { id: "taco", name: "Taco", image: "/Images/Taco.png" },
+      { id: "matcha", name: "Matcha", image: "/Images/matcha.png"},
+      { id: "waffles", name: "Belgian Waffles", image: "/Images/Belgian-waffles.png" },
+      { id: "donut", name: "Donut", image: "/Images/ice-cream.png" }
+    ];
+
+    return (
+      <section className="trailer-customization-card">
+        <div className="trailer-wrap-panel">
+          {/* Food Trailer Wrap Included Section */}
+          <div className="wrap-included-section">
+            <h3 className="wrap-section-title">Food Trailer Wrap Included</h3>
+            <p className="wrap-section-description">
+              Your trailer is more than a kitchen - it's a moving billboard. Wrapping is key for branding and visual impact. Explore sample designs to see how different styles can boost visibility and attract customers.
+            </p>
+            
+            <div className="wrap-features-grid">
+              <div className="wrap-feature-card">
+                <div className="wrap-feature-icon">
+                  <img src="/Images/icon-custom-design-services.png" />
+                </div>
+                <strong>Custom Design Services</strong>
+              </div>
+              <div className="wrap-feature-card">
+                <div className="wrap-feature-icon">3M</div>
+                <strong>Quality 3M Vinyl Wraps</strong>
+              </div>
+              <div className="wrap-feature-card">
+                <div className="wrap-feature-icon">
+                  <img src="/Images/icon-protective-lamination.png" />
+                </div>
+                <strong>Protective Lamination</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Design Examples Section */}
+          <div className="design-examples-section">
+            <h3 className="wrap-section-title">Design Examples</h3>
+            <p className="wrap-section-description">
+              Take a look at sample designs, colors, and graphics to get inspired. These examples show how different styles can increase visibility, attract customers, and leave a lasting impression.
+            </p>
+            
+            <div className="design-examples-grid">
+              {designExamples.map((design) => (
+                <button
+                  key={design.id}
+                  type="button"
+                  className="design-example-card"
+                >
+                  {/* <span className="design-example-icon">{design.image}</span> */}
+                  <img src={design.image} className="design-example-icon"/>
+                  <span className="design-example-name">{design.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const isSpecsPage = selectedStepId === "size-specs";
-  const isCatalogPage = selectedStepId === "equipment-side" || selectedStepId === "serving-side";
+  const isCatalogPage = [
+    "equipment-side",
+    "serving-side",
+    "addons-utility",
+    "trailer-customization"
+  ].includes(selectedStepId);
 
   return (
     <div
@@ -1062,10 +1213,12 @@ function App() {
             <p>{inspectorCopy.description}</p>
           </section>
 
-          <section className="info-pill">
-            <span className="info-pill__icon">i</span>
-            <p>{inspectorCopy.info}</p>
-          </section>
+          {inspectorCopy.info ? (
+            <section className="info-pill">
+              <span className="info-pill__icon">i</span>
+              <p>{inspectorCopy.info}</p>
+            </section>
+          ) : null}
         </div>
         <div className="inspector-scroll">
           {selectedStepId === "size" ? (
@@ -1207,6 +1360,14 @@ function App() {
 
           {selectedStepId === "serving-side" ? (
             renderEquipmentCatalogPanel(servingSideMenus, "Serve")
+          ) : null}
+
+          {selectedStepId === "addons-utility" ? (
+            renderAddonsPanel()
+          ) : null}
+
+          {selectedStepId === "trailer-customization" ? (
+            renderTrailerCustomizationPanel()
           ) : null}
 
           {/* <details className="advanced-controls">

@@ -406,7 +406,9 @@ button {
 }
 
 .inspector-header {
-  padding: clamp(16px, 2vw, 22px) clamp(16px, 2vw, 22px) 0;
+  /* Use a consistent header padding for the inspector across pages
+     so titles, nav and section headings line up uniformly. */
+  padding: 54px 28px 0;
 }
 
 .size-page .inspector-header {
@@ -799,6 +801,93 @@ button {
   display: none;
 }
 
+/* Add-ons panel styles */
+.addons-list {
+  display: grid;
+  gap: 18px;
+}
+.addons-intro {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.addon-section {
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid rgba(17,24,39,0.06);
+  overflow: hidden;
+}
+.addon-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(17,24,39,0.04);
+}
+.addon-section-heading h4 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.addon-section-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+.addon-card {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(17,24,39,0.04);
+  overflow: visible;
+  padding-right: 18px;
+}
+.addon-card-visual {
+  width: 56px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+.addon-card-visual img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+}
+.addon-card-info strong {
+  font-size: 1rem;
+}
+.addon-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.circle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+}
+/* .circle-btn.small { width: 36px; height: 36px; }
+.circle-btn.danger { width: 30px;
+  height: 30px; } */
+
+/* Ensure the inspector scroll area has space for sticky action bar */
+.inspector-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 clamp(16px, 2vw, 22px) 110px;
+}
+
+
 .advanced-controls summary > span:first-child {
   color: #111827;
   font-size: 0.92rem;
@@ -921,13 +1010,28 @@ button {
   text-align: left;
 }
 
-.equipment-card,
+.circle-btn {
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
 .zone-card {
   cursor: pointer;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     border-color 160ms ease;
+}
+
+.circle-btn img {
+  width: 18px;
+  height: 18px;
+  display: block;
+  object-fit: contain;
+}
+.circle-btn.small img {
+  width: 16px;
+  height: 16px;
 }
 
 .equipment-card:hover,
@@ -1316,6 +1420,131 @@ button {
   color: #596273;
   font-size: 0.76rem;
   text-decoration: underline;
+}
+
+/* Trailer Wrap Customization Panel Styles */
+.trailer-customization-card {
+  padding: 24px 28px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+.trailer-wrap-panel {
+  display: grid;
+  gap: 32px;
+}
+
+.wrap-included-section,
+.design-examples-section {
+  display: grid;
+  gap: 16px;
+}
+
+.wrap-section-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.wrap-section-description {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.wrap-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wrap-feature-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  text-align: center;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.wrap-feature-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(17, 24, 39, 0.15);
+  /* box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08); */
+}
+.wrap-feature-icon img{
+  height: 30px;
+}
+.wrap-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: #f3f4f6;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.wrap-feature-card strong {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.design-examples-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.design-example-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.design-example-card:hover,
+.design-example-card.active {
+  transform: translateY(-2px);
+  border-color: rgba(17, 24, 39, 0.15);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
+  background: linear-gradient(180deg, #f6f8fa 0%, #e8f0ff 100%);
+}
+
+.design-example-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 1.25rem;
+}
+
+.design-example-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .catalog-product-visual {
