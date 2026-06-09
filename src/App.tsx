@@ -878,9 +878,9 @@ function App() {
                   <span>{equipment.name}</span>
 
                   <div className="quantity-controls" onClick={e => e.stopPropagation()}>
-                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="public/Images/Minus.png" /> </button>
+                    <button type="button" className="quantity-btn" onClick={() => removeOnePlaced(equipment.id)}> <img src="Images/Minus.png" /> </button>
                     <span className="quantity-value">{placedCount}</span>
-                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="public/Images/Plus.png" /></button>
+                    <button type="button" className="quantity-btn" onClick={() => placeEquipmentAtNextPosition(equipment.id)}><img src="Images/Plus.png" /></button>
                   </div>
                 </div>
               )})}
@@ -905,7 +905,7 @@ function App() {
       <main className="experience-shell">
         <div className="brand-bar">
           <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
-            <img src="public/Images/Back.png" />
+            <img src="Images/Back.png" />
           </button>
           <div className="brand-copy">
             <div className="brand-title-row">
