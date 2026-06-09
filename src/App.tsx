@@ -953,7 +953,7 @@ function App() {
                   <span className="catalog-more-link">more info</span>
                   <span className="catalog-product-visual" aria-hidden="true">
                     {equipment.imageUrl && equipment.imageUrl !== "False" ? (
-                      <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "80%", height: "80%" }} />
+                      <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "90%", height: "90%" }} />
                     ) : (
                       <span
                         className="catalog-product-shape"

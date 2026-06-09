@@ -249,7 +249,7 @@ button {
 .view-overview-button {
   padding: 0 20px;
   font-size: 0.58rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1690,9 +1690,12 @@ button {
 
 .catalog-product-card strong {
   color: #142033;
-  font-size: 1.35rem;
+  font-size: 1rem;
   line-height: 1;
   letter-spacing: -0.04em;
+}
+.catalog-product-card span {
+  font-size: 0.9rem;
 }
 
 .catalog-product-card > span:last-child {
