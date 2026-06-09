@@ -1,7 +1,7 @@
 import {
   Environment,
-  GizmoHelper,
-  GizmoViewport,
+  // GizmoHelper,
+  // GizmoViewport,
   OrbitControls
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";

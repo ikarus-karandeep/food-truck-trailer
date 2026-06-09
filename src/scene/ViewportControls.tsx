@@ -69,7 +69,7 @@ export default function ViewportControls({
             disabled={!visualCanSwapLeft}
             title="Swap left"
           >
-            <img src="public/images/Previous.png" />
+            <img src="/Images/Previous.png" />
           </button>
           <button
             className="viewport-icon-button viewport-edit-button"
@@ -90,7 +90,7 @@ export default function ViewportControls({
             disabled={!visualCanSwapRight}
             title="Swap right"
           >
-            <img src="public/images/Previous.png" />
+            <img src="/Images/Previous.png" />
           </button>
         </div>
         <button
@@ -102,7 +102,7 @@ export default function ViewportControls({
           title="Delete"
           aria-label="Delete"
         >
-          <img src="public/images/Delete.png" />
+          <img src="/Images/Delete.png" />
         </button>
         {isEditingSelected ? (
           <div className="viewport-editor">
