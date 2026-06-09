@@ -427,7 +427,7 @@ button {
 }
 
 .size-page .inspector-scroll {
-  padding: 0 24px 10px;
+  padding: 10px 24px 10px;
   margin-bottom: 10px;
 }
 
@@ -580,9 +580,15 @@ button {
 }
 
 .size-page .trailer-card:hover,
-.size-page .trailer-card.active {
+.size-page .trailer-card:hover {
   transform: none;
   border-color: rgba(17, 24, 39, 0.1);
+}
+
+/* Make selected trailer card border black */
+.size-page .trailer-card.active {
+  border-color: #000000;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.12);
 }
 
 .trailer-card__meta {
@@ -792,6 +798,55 @@ button {
   cursor: pointer;
   box-shadow: 0 14px 28px rgba(17, 24, 39, 0.14);
   border: none;
+}
+
+/* Entrance animation for continue buttons */
+.trailer-card__footer .continue-button,
+.size-option-continue {
+  animation: fadeInUp 320ms cubic-bezier(.22,.9,.3,1) both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Size option card: allow footer row for inside- card continue button */
+.size-option-card {
+  grid-template-rows: auto auto;
+  position: relative;
+}
+
+.size-option-footer {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+}
+
+.size-option-continue {
+  width: 100%;
+  height: 48px;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.12);
+  border: none;
+}
+
+.size-option-continue .continue-arrow {
+  font-size: 1.1rem;
 }
 
 .control-section {
@@ -1155,14 +1210,14 @@ button {
 
 .sticky-action-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px;
+   grid-template-columns: 1fr 1fr 64px;
   gap: 12px;
   padding: 18px clamp(16px, 2vw, 22px) clamp(16px, 2vw, 22px);
   background: linear-gradient(180deg, rgba(247, 247, 246, 0) 0%, #f7f7f6 28%);
 }
 
 .size-page .sticky-action-bar {
-  grid-template-columns: minmax(0, 1fr) 72px;
+  grid-template-columns: 1fr 1fr 72px;
   gap: 14px;
   padding: 0 24px 20px;
   background: #f4f4f3;
@@ -1192,7 +1247,7 @@ button {
 
 .catalog-page .sticky-action-bar,
 .specs-page .sticky-action-bar {
-  grid-template-columns: minmax(0, 1fr) 72px;
+  grid-template-columns: 1fr 1fr 72px;
   gap: 14px;
   padding: 0 24px 20px;
   background: linear-gradient(180deg, rgba(244, 244, 243, 0) 0%, #f4f4f3 28%);
@@ -1428,14 +1483,14 @@ button {
   height: 40px;
   border-radius: 50%;
   background: #ffffff;
-  border: 1px solid transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
   color: #111827;
   font-size: 1.25rem;
   font-weight: 400;
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  /* box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); */
   transition: background 150ms ease, box-shadow 150ms ease;
 }
 
@@ -1655,6 +1710,18 @@ button {
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+.summary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.summary-button img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .icon-action-button {
   display: flex;
@@ -2338,4 +2405,57 @@ canvas {
 .modal-confirm-btn:hover {
   background: #dc2626;
   transform: scale(1.03);
+}
+
+.step-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* padding: 10px 0 14px; */
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.step-nav-btn {
+  background: #f0f0f0;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  padding: 16px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  color: var(--text, #111);
+  transition: background 0.15s;
+}
+
+.step-nav-btn:hover:not(:disabled) {
+  background: var(--surface-hover, #e8e8e8);
+}
+
+.step-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Active step pill in the center */
+.step-nav-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #111;
+  color: #fff;
+  border-radius: 6px;
+  padding: 16px 12px;
+}
+.icon-action-button svg {
+  animation: pop-in 0.2s ease;
+}
+@keyframes pop-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }

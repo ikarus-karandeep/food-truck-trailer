@@ -48,6 +48,7 @@ function App() {
   const [editingPlacedId, setEditingPlacedId] = useState<string | null>(null);
   const [dropZoneBoundsMap, setDropZoneBoundsMap] = useState<Record<string, Partial<Zone>>>({});
   const [showNoBaseModal, setShowNoBaseModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   // Pending Level-1 delete that has stacked Level-2 items
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     level1Id: string;
@@ -82,20 +83,21 @@ function App() {
   }, []);
 
   function handleSaveBuild() {
-    const stateToSave = {
-      selectedTrailerSizeId,
-      placed
-    };
-    try {
-      const encoded = btoa(JSON.stringify(stateToSave));
-      const newUrl = window.location.origin + window.location.pathname + '?build=' + encoded;
-      navigator.clipboard.writeText(newUrl).then(() => {
-        alert("Link copied to clipboard! You can use this link to resume your build later.");
-      });
-    } catch (e) {
-      console.error("Failed to save build to URL", e);
-    }
+  const stateToSave = {
+    selectedTrailerSizeId,
+    placed
+  };
+  try {
+    const encoded = btoa(JSON.stringify(stateToSave));
+    const newUrl = window.location.origin + window.location.pathname + '?build=' + encoded;
+    navigator.clipboard.writeText(newUrl).then(() => {
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    });
+  } catch (e) {
+    console.error("Failed to save build to URL", e);
   }
+}
 
   const allZones = useMemo(() => buildZones(dropZoneBoundsMap), [dropZoneBoundsMap]);
 
@@ -128,6 +130,17 @@ function App() {
       trailerSizes[0],
     [selectedTrailerSizeId]
   );
+
+  // Compute total price: base trailer price + equipment prices
+  const totalPrice = useMemo(() => {
+    const basePrice = 99999;
+    const equipmentSum = placed.reduce((sum, item) => {
+      const def = equipmentMap[item.definitionId];
+      if (!def || !def.price) return sum;
+      return sum + parsePrice(def.price);
+    }, 0);
+    return basePrice + equipmentSum;
+  }, [placed, selectedTrailerSize, equipmentMap]);
 
   const selectedTrailerCard = useMemo(
     () => trailerSizes.find((t) => t.id === selectedTrailerCardId) ?? trailerSizes[0],
@@ -835,8 +848,8 @@ function App() {
         return {
           title: "Trailer Size & Specifications",
           description:
-            "Choose the trailer size to match your needs and equipments you need to keep.",
-          info: "Start from the maximum size and reduce it later to perfectly fit your equipments"
+            "Choose trailer size to match your needs and equipments you need to keep.",
+          info: "Start from maximum size and reduce it later to perfectly fit your equipments"
         };
       case "equipment-side":
         return {
@@ -854,13 +867,13 @@ function App() {
         return {
           title: "Add-ons & Utility",
           description: "Add-on and utility options will appear here.",
-          info: ""
+          info: "Choose a menu from the bottom navigation."
         };
       case "trailer-customization":
         return {
           title: "Trailer Customization",
           description: "Trailer customization options will appear here.",
-          info: ""
+          info: "Choose a menu from the bottom navigation."
         };
       default:
         return {
@@ -940,7 +953,7 @@ function App() {
                   <span className="catalog-more-link">more info</span>
                   <span className="catalog-product-visual" aria-hidden="true">
                     {equipment.imageUrl && equipment.imageUrl !== "False" ? (
-                      <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "80%", height: "80%" }} />
                     ) : (
                       <span
                         className="catalog-product-shape"
@@ -1129,9 +1142,9 @@ function App() {
     >
       <main className="experience-shell">
         <div className="brand-bar">
-          <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
+          {/* <button className="back-button" type="button" aria-label="Go back" onClick={() => setSelectedStepId("size")}>
             <img src="Images/Back.png" />
-          </button>
+          </button> */}
           <div className="brand-copy">
             <div className="brand-title-row">
               {/* <span className="brand-mark" aria-hidden="true" /> */}
@@ -1289,18 +1302,49 @@ function App() {
 
       <aside className="inspector-panel">
         <div className="inspector-header">
-          <section className="title-block">
-            <h2>{inspectorCopy.title}</h2>
-            <p>{inspectorCopy.description}</p>
-          </section>
 
-          {inspectorCopy.info ? (
-            <section className="info-pill">
-              <span className="info-pill__icon">i</span>
-              <p>{inspectorCopy.info}</p>
-            </section>
-          ) : null}
-        </div>
+  <section className="title-block">
+    <h2>{inspectorCopy.title}</h2>
+    <p>{inspectorCopy.description}</p>
+  </section>
+
+  {inspectorCopy.info ? (
+    <section className="info-pill">
+      <span className="info-pill__icon">i</span>
+      <p>{inspectorCopy.info}</p>
+    </section>
+  ) : null}
+  {/* ── Step top-nav ── */}
+  <div className="step-top-nav">
+    <button
+      type="button"
+      className="step-nav-btn"
+      disabled={configuratorSteps.findIndex(s => s.id === selectedStepId) === 0}
+      onClick={() => {
+        const idx = configuratorSteps.findIndex(s => s.id === selectedStepId);
+        if (idx > 0) setSelectedStepId(configuratorSteps[idx - 1].id);
+      }}
+    >
+      ← BACK
+    </button>
+
+    <span className="step-nav-label">
+      {configuratorSteps.find(s => s.id === selectedStepId)?.label ?? ""}
+    </span>
+
+    <button
+      type="button"
+      className="step-nav-btn"
+      disabled={configuratorSteps.findIndex(s => s.id === selectedStepId) === configuratorSteps.length - 1}
+      onClick={() => {
+        const idx = configuratorSteps.findIndex(s => s.id === selectedStepId);
+        if (idx < configuratorSteps.length - 1) setSelectedStepId(configuratorSteps[idx + 1].id);
+      }}
+    >
+      NEXT →
+    </button>
+  </div>
+</div>
         <div className="inspector-scroll">
           {selectedStepId === "size" ? (
             <section className="trailer-card-list">
@@ -1446,6 +1490,20 @@ function App() {
                         <span>{sizeOption.description}</span>
                       </span>
                       <strong className="size-option-price">$99,999</strong>
+                      {isActive ? (
+                        <div className="size-option-footer">
+                          <button
+                            type="button"
+                            className="size-option-continue"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStepId("equipment-side");
+                            }}
+                          >
+                            Continue with {sizeOption.label} <span className="continue-arrow">→</span>
+                          </button>
+                        </div>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -1552,12 +1610,50 @@ function App() {
         </div>
 
         <div className="sticky-action-bar">
-          <button type="button" className="summary-button" onClick={() => setShowBuildSummary(true)}>
-            Build Summary
+          <button
+            type="button"
+            className="summary-button"
+            onClick={() => setShowBuildSummary(true)}
+          >
+            <img src="/Images/summary.png"/>
+            {placed.length > 0 || totalPrice > 0 ? (
+              <span>{`$${totalPrice.toLocaleString()}`}</span>
+            ) : (
+              <span>Summary</span>
+            )}
           </button>
-          <button type="button" className="icon-action-button" aria-label="Save build" onClick={handleSaveBuild}>
-            <img src="public/images/Save.png" className="icon-action-button-img"/>
+
+          <button
+            type="button"
+            className="summary-button"
+          // onClick={handleContactUs} // or your function
+          >
+            <img src="/Images/Contact.png"/>
+            Contact Us
           </button>
+
+          <button
+  type="button"
+  className="icon-action-button"
+  aria-label="Save build"
+  onClick={handleSaveBuild}
+>
+  {isSaved ? (
+    <svg
+      width="22" height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ) : (
+    <img src="public/images/Save.png" className="icon-action-button-img" />
+  )}
+</button>
         </div>
       </aside>
 
@@ -1581,7 +1677,7 @@ function App() {
                 </div>
               <div className="summary-trailer-info">
                  <span className="summary-trailer-type">{selectedTrailerCard.id === "size-30" ? "HOT FOOD SERVICE TRAILER" : "CONCESSION TRAILER"}</span>
-                 <strong className="summary-trailer-price">${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
+                 <strong className="summary-trailer-price">${(selectedTrailerSize.id === "size-30" ? 99999 : 99999).toLocaleString()}</strong>
               </div>
             </div>
 
@@ -1619,7 +1715,7 @@ function App() {
                        </p>
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
                           <strong>Base Price</strong>
-                          <strong>${(selectedTrailerSize.id === "size-30" ? 99999 : 69000).toLocaleString()}</strong>
+                          <strong>${(selectedTrailerSize.id === "size-30" ? 99999 : 99999).toLocaleString()}</strong>
                        </div>
                     </div>
                  </div>
@@ -1680,7 +1776,7 @@ function App() {
               <div className="summary-totals">
                  {(() => {
                    const equipmentsTotal = placements.reduce((sum, { definition }) => sum + parsePrice(definition.price), 0);
-                   const basePrice = selectedTrailerSize.id === "size-30" ? 99999 : 69000;
+                   const basePrice = selectedTrailerSize.id === "size-30" ? 99999 : 99999;
                    const total = basePrice + equipmentsTotal;
                    return (
                      <>

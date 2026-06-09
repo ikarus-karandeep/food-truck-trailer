@@ -100,6 +100,15 @@ export default function BuilderScene({
     if (activeStageModelSrc) setStageLoading(true);
   }, [activeStageModelSrc]);
 
+  // When the customization (textures) changes, treat the stage as loading
+  // so the app shows the loader until the StageModel reports ready via onLoad.
+  useEffect(() => {
+    // Only trigger if a stage model is present
+    if (activeStageModelSrc) {
+      setStageLoading(true);
+    }
+  }, [selectedCustomizationId, activeStageModelSrc]);
+
   useEffect(() => {
     if (dropZoneModelSrc) setDropZoneLoading(true);
   }, [dropZoneModelSrc]);
@@ -358,11 +367,13 @@ export default function BuilderScene({
             />
           </Suspense>
 
-          <PlaceholderSlots
-            zones={droppableZones}
-            placements={placements}
-            measuredFootprints={measuredFootprints}
-          />
+          {(!stageLoading && !dropZoneLoading) ? (
+            <PlaceholderSlots
+              zones={droppableZones}
+              placements={placements}
+              measuredFootprints={measuredFootprints}
+            />
+          ) : null}
 
           {draggingEquipment && dragPreviewPlacement ? (
             <Suspense fallback={null}>

@@ -113,8 +113,11 @@ function VisibleStageModel({
   const gltf = useGLTF(src);
 
   useEffect(() => {
+    // Call onLoad when the model AND textures (dependent on selectedCustomizationId)
+    // have been resolved. The component is mounted inside a Suspense boundary
+    // so this effect will run after loaders complete for gltf and textures.
     if (onLoad) onLoad();
-  }, [onLoad, src]);
+  }, [onLoad, src, selectedCustomizationId]);
 
   // Texture loading
   const trailerSize = src.includes("16") ? 16 : src.includes("30") ? 30 : 16;
