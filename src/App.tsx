@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 import BuilderScene from "./BuilderScene";
-import { label } from "three/tsl";
+// import { label } from "three/tsl";
 
 function parsePrice(priceStr: string | undefined): number {
   if (!priceStr) return 0;
@@ -35,7 +35,7 @@ function App() {
   // user confirms a size in the `size-specs` step.
   const [displayedTrailerSizeId, setDisplayedTrailerSizeId] =
     useState<TrailerSize["id"]>("size-16");
-  const [hasChosenTrailerType, setHasChosenTrailerType] = useState<boolean>(false);
+  // const [hasChosenTrailerType, setHasChosenTrailerType] = useState<boolean>(false);
   // `selectedTrailerCardId` tracks which trailer card (type) the user selected
   // in the Trailer Type picker. It is separate from the committed size
   // (`selectedTrailerSizeId`) so changing the card does not change the model.
@@ -898,7 +898,7 @@ function App() {
     // When the user clicks a trailer card, only update the card selection.
     // Do not change the committed size or the displayed model here.
     setSelectedTrailerCardId(trailerSize.id);
-    setHasChosenTrailerType(true);
+    // setHasChosenTrailerType(true);
     setSelectedEquipmentId(null);
     setSelectedPlacedId(null);
     setEditingPlacedId(null);
