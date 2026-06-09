@@ -1651,7 +1651,7 @@ function App() {
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ) : (
-    <img src="public/images/Save.png" className="icon-action-button-img" />
+    <img src="/Images/Save.png" className="icon-action-button-img" />
   )}
 </button>
         </div>
