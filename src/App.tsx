@@ -950,7 +950,7 @@ function App() {
                     placeEquipmentAtNextPosition(equipment.id);
                   }}
                 >
-                  <span className="catalog-more-link">more info</span>
+                  {/* <span className="catalog-more-link">more info</span> */}
                   <span className="catalog-product-visual" aria-hidden="true">
                     {equipment.imageUrl && equipment.imageUrl !== "False" ? (
                       <img src={equipment.imageUrl} alt={equipment.name} style={{ width: "90%", height: "90%" }} />
