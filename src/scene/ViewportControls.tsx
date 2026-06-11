@@ -29,17 +29,10 @@ export default function ViewportControls({
   onViewportEquipmentChange,
   onControlsHoverChange
 }: ViewportControlsProps) {
-  const { item, definition, zone } = selectedPlaced;
+  const { item, definition } = selectedPlaced;
   const controlHeight = (measuredFootprint?.height ?? definition.size.height) + 0.08;
-  const isServingSide = zone.id === "serving-drop";
-  const resolveVisualDirection = (direction: "left" | "right") =>
-    isServingSide
-      ? direction === "left"
-        ? "right"
-        : "left"
-        : direction;
-  const visualCanSwapLeft = isServingSide ? canSwapRight : canSwapLeft;
-  const visualCanSwapRight = isServingSide ? canSwapLeft : canSwapRight;
+  const visualCanSwapLeft = canSwapLeft;
+  const visualCanSwapRight = canSwapRight;
 
   return (
     <Html
@@ -64,7 +57,7 @@ export default function ViewportControls({
             className="viewport-icon-button viewport-icon-next"
             onPointerDown={(event) => {
               event.stopPropagation();
-              onSwapPlaced(item.id, resolveVisualDirection("left"));
+              onSwapPlaced(item.id, "left");
             }}
             disabled={!visualCanSwapLeft}
             title="Swap left"
@@ -85,7 +78,7 @@ export default function ViewportControls({
             className="viewport-icon-button viewport-icon-swapnext"
             onPointerDown={(event) => {
               event.stopPropagation();
-              onSwapPlaced(item.id, resolveVisualDirection("right"));
+              onSwapPlaced(item.id, "right");
             }}
             disabled={!visualCanSwapRight}
             title="Swap right"

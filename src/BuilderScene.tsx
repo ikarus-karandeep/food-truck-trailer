@@ -426,11 +426,11 @@ export default function BuilderScene({
                     selectedPlaced={placementView}
                     isEditingSelected={editingPlacedId === item.id}
                     editableEquipmentOptions={editableEquipmentOptions}
-                    measuredFootprint={measuredFootprint}
-                    canSwapLeft={swapAvailability.canSwapLeft}
-                    canSwapRight={swapAvailability.canSwapRight}
-                    onDeletePlaced={onDeletePlaced}
-                    onSwapPlaced={onSwapPlaced}
+                  measuredFootprint={measuredFootprint}
+                  canSwapLeft={swapAvailability.canSwapLeft}
+                  canSwapRight={swapAvailability.canSwapRight}
+                  onDeletePlaced={onDeletePlaced}
+                  onSwapPlaced={onSwapPlaced}
                     onToggleViewportEdit={onToggleViewportEdit}
                     onViewportEquipmentChange={onViewportEquipmentChange}
                     onControlsHoverChange={(hovered) => {
