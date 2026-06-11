@@ -171,7 +171,7 @@ const generatedMenuGroups: EquipmentMenuGroup[] = Array.from(
     ...group,
     items: [...group.items].sort((a, b) => a.name.localeCompare(b.name))
   }))
-  .sort((a, b) => a.label.localeCompare(b.label));
+
   
 
 const servingSideMenuGroups: EquipmentMenuGroup[] = [
