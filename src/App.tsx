@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, type CSSProperties } from "r
 import { Vector3 } from "three";
 import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
 import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
-import { getEquipmentAxisSize, getZoneAxisInfo, resolveNonIntersectingPlacement } from "./scene/dropZone";
+import { getZoneAxisInfo, resolveNonIntersectingPlacement } from "./scene/dropZone";
 import type { MeasuredFootprint } from "./scene/types";
 import { PLACEHOLDER_HEIGHT } from "./scene/types";
 import type {
@@ -208,10 +208,10 @@ function App() {
 
     const horizontal = zone.length >= zone.width;
 
-    const targetedItems = items.filter((item) => {
-      const def = equipmentMap[item.definitionId];
-      return def && item.zoneId === zoneId && levels.includes(def.level);
-    });
+    // const targetedItems = items.filter((item) => {
+    //   const def = equipmentMap[item.definitionId];
+    //   return def && item.zoneId === zoneId && levels.includes(def.level);
+    // });
 
     const peers = items
       .map((item) => {
@@ -308,78 +308,78 @@ function App() {
     });
   }
 
-  function getNextLevel2SupportPlacement(zone: Zone, items: PlacedEquipment[]) {
-  const axis = getZoneAxisInfo(zone);
-  const horizontal = axis.horizontal;
+//   function getNextLevel2SupportPlacement(zone: Zone, items: PlacedEquipment[]) {
+//   const axis = getZoneAxisInfo(zone);
+//   const horizontal = axis.horizontal;
 
-  console.group(`[Level2Placement] zone=${zone.id} horizontal=${horizontal} axis.min=${axis.min} axis.max=${axis.max}`);
+//   console.group(`[Level2Placement] zone=${zone.id} horizontal=${horizontal} axis.min=${axis.min} axis.max=${axis.max}`);
 
-  const groundOccupied = items
-    .filter(({ item, definition }) => item.zoneId === zone.id && (definition.level === 0 || definition.level === 1))
-    .map(({ item, definition, placement }) => {
-      const halfSize =
-        (horizontal
-          ? (measuredFootprints[item.id]?.length ?? definition.size.length)
-          : (measuredFootprints[item.id]?.width ?? definition.size.width)) / 2;
-      const center = horizontal ? placement.z : placement.x;
-      return { id: item.id, defId: item.definitionId, start: center - halfSize, end: center + halfSize };
-    });
+//   const groundOccupied = items
+//     .filter(({ item, definition }) => item.zoneId === zone.id && (definition.level === 0 || definition.level === 1))
+//     .map(({ item, definition, placement }) => {
+//       const halfSize =
+//         (horizontal
+//           ? (measuredFootprints[item.id]?.length ?? definition.size.length)
+//           : (measuredFootprints[item.id]?.width ?? definition.size.width)) / 2;
+//       const center = horizontal ? placement.z : placement.x;
+//       return { id: item.id, defId: item.definitionId, start: center - halfSize, end: center + halfSize };
+//     });
 
-  const level2Occupied = items
-    .filter(({ item, definition }) => item.zoneId === zone.id && definition.level === 2)
-    .map(({ item, definition, placement }) => {
-      const halfSize =
-        (horizontal
-          ? (measuredFootprints[item.id]?.length ?? definition.size.length)
-          : (measuredFootprints[item.id]?.width ?? definition.size.width)) / 2;
-      const center = horizontal ? placement.z : placement.x;
-      return { id: item.id, defId: item.definitionId, start: center - halfSize, end: center + halfSize };
-    });
+//   const level2Occupied = items
+//     .filter(({ item, definition }) => item.zoneId === zone.id && definition.level === 2)
+//     .map(({ item, definition, placement }) => {
+//       const halfSize =
+//         (horizontal
+//           ? (measuredFootprints[item.id]?.length ?? definition.size.length)
+//           : (measuredFootprints[item.id]?.width ?? definition.size.width)) / 2;
+//       const center = horizontal ? placement.z : placement.x;
+//       return { id: item.id, defId: item.definitionId, start: center - halfSize, end: center + halfSize };
+//     });
 
-  console.log('[Level2Placement] groundOccupied:', JSON.stringify(groundOccupied));
-  console.log('[Level2Placement] level2Occupied:', JSON.stringify(level2Occupied));
+//   console.log('[Level2Placement] groundOccupied:', JSON.stringify(groundOccupied));
+//   console.log('[Level2Placement] level2Occupied:', JSON.stringify(level2Occupied));
 
-  const allOccupied = [...groundOccupied, ...level2Occupied].sort((a, b) => a.start - b.start);
-  console.log('[Level2Placement] allOccupied (sorted):', JSON.stringify(allOccupied));
+//   const allOccupied = [...groundOccupied, ...level2Occupied].sort((a, b) => a.start - b.start);
+//   console.log('[Level2Placement] allOccupied (sorted):', JSON.stringify(allOccupied));
 
-  const itemHalf = PLACEHOLDER_HEIGHT / 2;
-  let cursor = axis.max;
-  const reverseOccupied = [...allOccupied].sort((a, b) => b.start - a.start);
+//   const itemHalf = PLACEHOLDER_HEIGHT / 2;
+//   let cursor = axis.max;
+//   const reverseOccupied = [...allOccupied].sort((a, b) => b.start - a.start);
 
-  for (const interval of reverseOccupied) {
-    console.log(`[Level2Placement] cursor=${cursor} checking interval start=${interval.start} end=${interval.end} gap=${interval.start - cursor}`);
-    if (cursor > interval.end + LEVEL2_COMPACT_GAP) {
-      const center = cursor - itemHalf;
-      const result = {
-        x: horizontal ? zone.x : center,
-        y: zone.lineY + PLACEHOLDER_HEIGHT,
-        z: horizontal ? center : zone.z,
-        rotationY: zone.id === "serving-drop" ? Math.PI : 0
-      };
-      console.log('[Level2Placement] Found gap → placing at:', JSON.stringify(result));
-      console.groupEnd();
-      return result;
-    }
-    cursor = Math.min(cursor, interval.start);
-  }
+//   for (const interval of reverseOccupied) {
+//     console.log(`[Level2Placement] cursor=${cursor} checking interval start=${interval.start} end=${interval.end} gap=${interval.start - cursor}`);
+//     if (cursor > interval.end + LEVEL2_COMPACT_GAP) {
+//       const center = cursor - itemHalf;
+//       const result = {
+//         x: horizontal ? zone.x : center,
+//         y: zone.lineY + PLACEHOLDER_HEIGHT,
+//         z: horizontal ? center : zone.z,
+//         rotationY: zone.id === "serving-drop" ? Math.PI : 0
+//       };
+//       console.log('[Level2Placement] Found gap → placing at:', JSON.stringify(result));
+//       console.groupEnd();
+//       return result;
+//     }
+//     cursor = Math.min(cursor, interval.start);
+//   }
 
-  if (cursor > axis.min + LEVEL2_COMPACT_GAP) {
-    const center = cursor - itemHalf;
-    const result = {
-      x: horizontal ? zone.x : center,
-      y: zone.lineY + PLACEHOLDER_HEIGHT,
-      z: horizontal ? center : zone.z,
-      rotationY: zone.id === "serving-drop" ? Math.PI : 0
-    };
-    console.log('[Level2Placement] No gap found, placing at end:', JSON.stringify(result));
-    console.groupEnd();
-    return result;
-  }
+//   if (cursor > axis.min + LEVEL2_COMPACT_GAP) {
+//     const center = cursor - itemHalf;
+//     const result = {
+//       x: horizontal ? zone.x : center,
+//       y: zone.lineY + PLACEHOLDER_HEIGHT,
+//       z: horizontal ? center : zone.z,
+//       rotationY: zone.id === "serving-drop" ? Math.PI : 0
+//     };
+//     console.log('[Level2Placement] No gap found, placing at end:', JSON.stringify(result));
+//     console.groupEnd();
+//     return result;
+//   }
 
-  console.log('[Level2Placement] Zone full, returning null');
-  console.groupEnd();
-  return null;
-}
+//   console.log('[Level2Placement] Zone full, returning null');
+//   console.groupEnd();
+//   return null;
+// }
 
   /** After ground-tier compaction, realign Level 2 items to sit on their Level 1 support. */
   function realignLevel2Items(items: PlacedEquipment[]): PlacedEquipment[] {

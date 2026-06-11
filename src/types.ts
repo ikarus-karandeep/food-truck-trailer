@@ -48,6 +48,12 @@ export type PlacedEquipment = {
     rotationY: number;
   };
   manualScale?: number;
+  // Optional wrapper fields used in some view helpers where a placed
+  // item is represented alongside its resolved definition and placement
+  // (keeps compatibility with `PlacementView`-style objects).
+  item?: PlacedEquipment;
+  definition?: EquipmentDefinition;
+  placement?: { x: number; y: number; z: number; rotationY: number; scale: number };
 };
 
 export type PlacementView = {
