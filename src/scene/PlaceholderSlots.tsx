@@ -99,7 +99,7 @@ function PlaceholderBox({
   return (
     <mesh position={position}>
       <boxGeometry args={size} />
-      <meshStandardMaterial color="#5a6268" metalness={0.15} roughness={0.75} />
+      <meshStandardMaterial color="#5a6268" metalness={1} roughness={0.6} />
     </mesh>
   );
 }
