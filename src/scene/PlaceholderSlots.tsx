@@ -1,13 +1,11 @@
 import { useMemo } from "react";
 import type { PlacementView, Zone } from "../types";
 import type { MeasuredFootprint } from "./types";
+import { PLACEHOLDER_HEIGHT } from "./types";
 import { getZoneAxisInfo, getEquipmentAxisSize } from "./dropZone";
 
 /** Minimum gap size worth showing a placeholder */
 const MIN_GAP = 0.05;
-
-/** Height of the placeholder boxes (world units) — resembles counter-height equipment */
-const PLACEHOLDER_HEIGHT = 0.85;
 
 type PlaceholderSlotsProps = {
   zones: Zone[];
@@ -28,7 +26,8 @@ function computeFreeSegments(
 ): Array<{ start: number; end: number }> {
   const axis = getZoneAxisInfo(zone);
 
-  // Collect occupied intervals from all ground-tier placements (level 0 + 1)
+  // Collect occupied intervals from all ground-tier placements (level 0 + 1).
+  // Level 2 items are stacked above them, so they should not reduce floor slots.
   const occupied = placements
     .filter(
       ({ item, definition }) =>
@@ -42,7 +41,6 @@ function computeFreeSegments(
     })
     .sort((a, b) => a.start - b.start);
 
-  // Compute free segments
   const free: Array<{ start: number; end: number }> = [];
   let cursor = axis.min;
 
@@ -66,8 +64,6 @@ function segmentsToSlots(
 ): SlotRect[] {
   const slots: SlotRect[] = [];
   const axis = getZoneAxisInfo(zone);
-
-  // Use full zone cross-axis width
   const crossAxisSize = axis.horizontal ? zone.width : zone.length;
 
   for (let idx = 0; idx < freeSegments.length; idx++) {
@@ -86,7 +82,7 @@ function segmentsToSlots(
     slots.push({
       key: `${zone.id}-seg-${idx}`,
       position,
-      size,
+      size
     });
   }
 
@@ -95,7 +91,7 @@ function segmentsToSlots(
 
 function PlaceholderBox({
   position,
-  size,
+  size
 }: {
   position: [number, number, number];
   size: [number, number, number];
@@ -103,11 +99,7 @@ function PlaceholderBox({
   return (
     <mesh position={position}>
       <boxGeometry args={size} />
-      <meshStandardMaterial
-        color="#5a6268"
-        metalness={0.15}
-        roughness={0.75}
-      />
+      <meshStandardMaterial color="#5a6268" metalness={0.15} roughness={0.75} />
     </mesh>
   );
 }
@@ -115,7 +107,7 @@ function PlaceholderBox({
 export default function PlaceholderSlots({
   zones,
   placements,
-  measuredFootprints,
+  measuredFootprints
 }: PlaceholderSlotsProps) {
   const slots = useMemo(() => {
     const result: SlotRect[] = [];
@@ -135,11 +127,7 @@ export default function PlaceholderSlots({
   return (
     <group>
       {slots.map((slot) => (
-        <PlaceholderBox
-          key={slot.key}
-          position={slot.position}
-          size={slot.size}
-        />
+        <PlaceholderBox key={slot.key} position={slot.position} size={slot.size} />
       ))}
     </group>
   );
