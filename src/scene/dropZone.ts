@@ -112,7 +112,15 @@ export function resolveNonIntersectingPlacement(
           return null;
         }
 
-        const center = Math.min(maxCenter, Math.max(minCenter, candidate));
+        let center = Math.min(maxCenter, Math.max(minCenter, candidate));
+
+        // Magnetic snap to adjacent items if within 0.2m (20cm) to prevent unwanted gaps
+        if (Math.abs(center - minCenter) < 0.2) {
+          center = minCenter;
+        } else if (Math.abs(center - maxCenter) < 0.2) {
+          center = maxCenter;
+        }
+
         return { center, distance: Math.abs(center - candidate) };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
