@@ -63,12 +63,12 @@ export function resolveNonIntersectingPlacement(
   measuredId: string,
   point: Vector3,
   placements: PlacementView[],
-  measuredFootprints: Record<string, MeasuredFootprint>
+  measuredFootprints: Record<string, MeasuredFootprint>,
+  gap = 0
 ) {
   const axis = getZoneAxisInfo(zone);
   const itemHalf = getEquipmentAxisSize(definition, measuredId, zone, measuredFootprints) / 2;
   const candidate = axis.horizontal ? point.z : point.x;
-  const gap = 0;
   const occupied = placements
     .filter(({ item }) => item.zoneId === zone.id)
     .map(({ item, definition: placedDefinition, placement }) => {
@@ -131,16 +131,17 @@ export function resolveNonIntersectingPlacement(
   }
 
   const rotationY = zone.id === "serving-drop" ? Math.PI : 0;
+  const center = nearestFit.center;
 
   return axis.horizontal
     ? {
         x: zone.x,
         y: zone.lineY,
-        z: nearestFit.center,
+        z: center,
         rotationY
       }
     : {
-        x: nearestFit.center,
+        x: center,
         y: zone.lineY,
         z: zone.z,
         rotationY

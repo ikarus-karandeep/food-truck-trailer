@@ -320,14 +320,22 @@ function App() {
       if (newAxisPos === undefined) return item;
 
       const currentPlacement = item.manualPlacement;
-      // Use zone defaults for dimensions we are not compacting along
-      // ALWAYS track the zone's dynamic Y coordinate. The X/Z defaults depend on orientation.
-      const baseX = currentPlacement?.x ?? zone.x;
+      const footprint = measuredFootprints[item.id];
+      const eqDef = equipmentMap[item.definitionId];
+      const itemWidth = footprint?.width ?? eqDef?.size.width ?? zone.width;
+      const itemLength = footprint?.length ?? eqDef?.size.length ?? zone.length;
+      
+      const frontOffsetDir = zone.id === "serving-drop" ? -1 : 1;
+      const perpOffsetX = horizontal ? frontOffsetDir * (zone.width - itemWidth) / 2 : 0;
+      const perpOffsetZ = !horizontal ? frontOffsetDir * (zone.length - itemLength) / 2 : 0;
+
+      // Ensure compactness maintains front alignment
+      const baseX = horizontal ? (zone.x + perpOffsetX) : newAxisPos;
       const baseY =
         levels.includes(2)
           ? zone.lineY + PLACEHOLDER_HEIGHT
-          : zone.lineY; // Keep Level 2 on the placeholder and ground-tier items on the floor
-      const baseZ = currentPlacement?.z ?? zone.z;
+          : zone.lineY;
+      const baseZ = horizontal ? newAxisPos : (zone.z + perpOffsetZ);
       const baseRotation = currentPlacement?.rotationY ?? (zone.id === "serving-drop" ? Math.PI : 0);
 
       return {
