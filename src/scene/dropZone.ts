@@ -114,10 +114,10 @@ export function resolveNonIntersectingPlacement(
 
         let center = Math.min(maxCenter, Math.max(minCenter, candidate));
 
-        // Magnetic snap to adjacent items if within 0.2m (20cm) to prevent unwanted gaps
-        if (Math.abs(center - minCenter) < 0.2) {
+        // Magnetic snap to adjacent items if within 0.05m (5cm) to prevent small gaps
+        if (Math.abs(center - minCenter) < 0.05) {
           center = minCenter;
-        } else if (Math.abs(center - maxCenter) < 0.2) {
+        } else if (Math.abs(center - maxCenter) < 0.05) {
           center = maxCenter;
         }
 
@@ -130,12 +130,21 @@ export function resolveNonIntersectingPlacement(
     return null;
   }
 
-  const rotationY = zone.id === "serving-drop" ? Math.PI : 0;
+  const isServing = zone.id === "serving-drop";
+  const rotationY = isServing ? (definition.level === 2 ? 0 : Math.PI) : 0;
   const center = nearestFit.center;
+
+  // Camera is at [10,8,10] (positive X side). Zone front face is at zone.x + zone.width/2.
+  // Push models toward max X (+1 dir) so their front face aligns with zone front face.
+  // serving-drop opens the other way so it uses -1.
+  const frontOffsetDir = isServing ? -1 : 1;
+  const perpOffset = axis.horizontal 
+    ? frontOffsetDir * (zone.width - (measuredFootprints[measuredId]?.width ?? definition.size.width)) / 2
+    : frontOffsetDir * (zone.length - (measuredFootprints[measuredId]?.length ?? definition.size.length)) / 2;
 
   return axis.horizontal
     ? {
-        x: zone.x,
+        x: zone.x + perpOffset,
         y: zone.lineY,
         z: center,
         rotationY
@@ -143,7 +152,7 @@ export function resolveNonIntersectingPlacement(
     : {
         x: center,
         y: zone.lineY,
-        z: zone.z,
+        z: zone.z + perpOffset,
         rotationY
       };
 }

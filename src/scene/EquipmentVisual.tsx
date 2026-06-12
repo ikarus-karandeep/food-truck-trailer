@@ -119,7 +119,7 @@ function ModeledEquipmentVisual({
               metrics.footprint.length + 0.005
             ]}
           />
-          <meshStandardMaterial color="#333333" metalness={0.2} roughness={0.8} />
+          <meshStandardMaterial color="#333333" metalness={1} roughness={0.8} />
         </mesh>
       )}
 

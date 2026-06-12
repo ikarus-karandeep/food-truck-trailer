@@ -49,6 +49,7 @@ function App() {
   const [editingPlacedId, setEditingPlacedId] = useState<string | null>(null);
   const [dropZoneBoundsMap, setDropZoneBoundsMap] = useState<Record<string, Partial<Zone>>>({});
   const [showNoBaseModal, setShowNoBaseModal] = useState(false);
+  const [showNoSpaceModal, setShowNoSpaceModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   // Pending Level-1 delete that has stacked Level-2 items
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -315,6 +316,51 @@ function App() {
       cursor = center - peer.halfSize - PADDING;
     }
 
+    function getLevel2YForItem(item: PlacedEquipment, items: PlacedEquipment[]) {
+      const zone = zoneMap[item.zoneId as ZoneId];
+      if (!zone) {
+        return PLACEHOLDER_HEIGHT;
+      }
+
+      const horizontal = zone.length >= zone.width;
+      const axisPos = horizontal
+        ? item.manualPlacement?.z ?? zone.z
+        : item.manualPlacement?.x ?? zone.x;
+
+      // Find the ground-tier item (Level 0 or 1) that occupies this axis position
+      const groundSupport = items.find((other) => {
+        if (other.id === item.id || other.zoneId !== item.zoneId) return false;
+        const otherDef = equipmentMap[other.definitionId];
+        if (!otherDef || (otherDef.level !== 0 && otherDef.level !== 1)) return false;
+
+        const otherPos = horizontal
+          ? other.manualPlacement?.z ?? zone.z
+          : other.manualPlacement?.x ?? zone.x;
+        const footprint = measuredFootprints[other.id];
+        const half =
+          (horizontal
+            ? footprint?.length ?? otherDef.size.length
+            : footprint?.width ?? otherDef.size.width) / 2;
+
+        return axisPos >= otherPos - half - 0.001 && axisPos <= otherPos + half + 0.001;
+      });
+
+      if (groundSupport) {
+        const supportDef = equipmentMap[groundSupport.definitionId]!;
+        if (supportDef.level === 0) {
+          // Over a Level 0 item (like a sink) -> Invalid support, hide it.
+          return -1000;
+        }
+        // Over a Level 1 item (base model) -> Use its actual top height.
+        const supportY = groundSupport.manualPlacement?.y ?? zone.lineY;
+        const supportHeight = supportDef.size.height;
+        return supportY + supportHeight;
+      }
+
+      // No ground item at this position -> Fallback to placeholder height.
+      return zone.lineY + PLACEHOLDER_HEIGHT;
+    }
+
     return items.map((item) => {
       const newAxisPos = updatedPositions.get(item.id);
       if (newAxisPos === undefined) return item;
@@ -325,18 +371,26 @@ function App() {
       const itemWidth = footprint?.width ?? eqDef?.size.width ?? zone.width;
       const itemLength = footprint?.length ?? eqDef?.size.length ?? zone.length;
       
+      // Camera is at [10,8,10] (positive X side). Zone front face is at zone.x + zone.width/2.
+      // Push models toward max X (+1 dir) so their front face aligns with zone front face.
+      // serving-drop opens the other way so it uses -1.
       const frontOffsetDir = zone.id === "serving-drop" ? -1 : 1;
       const perpOffsetX = horizontal ? frontOffsetDir * (zone.width - itemWidth) / 2 : 0;
       const perpOffsetZ = !horizontal ? frontOffsetDir * (zone.length - itemLength) / 2 : 0;
 
       // Ensure compactness maintains front alignment
       const baseX = horizontal ? (zone.x + perpOffsetX) : newAxisPos;
-      const baseY =
-        levels.includes(2)
-          ? zone.lineY + PLACEHOLDER_HEIGHT
-          : zone.lineY;
+      const calcY = levels.includes(2)
+        ? getLevel2YForItem(item, items)
+        : zone.lineY;
+      
+      // If no valid support, place far below floor to effectively hide it.
+      const baseY = calcY === -1000 ? -10 : calcY;
+
       const baseZ = horizontal ? newAxisPos : (zone.z + perpOffsetZ);
-      const baseRotation = currentPlacement?.rotationY ?? (zone.id === "serving-drop" ? Math.PI : 0);
+      const isServing = zone.id === "serving-drop";
+      const defaultRotation = isServing ? (eqDef?.level === 2 ? 0 : Math.PI) : 0;
+      const baseRotation = currentPlacement?.rotationY ?? defaultRotation;
 
       return {
         ...item,
@@ -436,7 +490,8 @@ function App() {
       remainingItems,
       deletedItem.zoneId,
       levels,
-      [] // Items on different tiers do not block each other's horizontal alignment
+      // Level 2 items treat Level 0 models as blockers to avoid landing on sinks.
+      levels.includes(2) ? [0] : [] 
     );
     return compacted;
   }
@@ -470,7 +525,8 @@ function App() {
       });
 
       level2Zones.forEach((zoneId) => {
-        updated = compactItems(updated, zoneId as ZoneId, [2], []);
+        // Level 2 items treat Level 0 models as blockers to avoid landing on sinks.
+        updated = compactItems(updated, zoneId as ZoneId, [2], [0]);
       });
 
       // Avoid state update if nothing changed
@@ -625,10 +681,12 @@ function App() {
         ? new Vector3(zone.x, zone.lineY + PLACEHOLDER_HEIGHT, axis.max)
         : new Vector3(axis.max, zone.lineY + PLACEHOLDER_HEIGHT, zone.z);
 
-      const currentLevel2Placements: PlacementView[] = current
+      const level2AndBlockerPlacements: PlacementView[] = current
         .map((item) => {
           const def = equipmentMap[item.definitionId];
-          if (!def || def.level !== 2 || item.zoneId !== zone.id) return null;
+          // Level 2 items block other Level 2 items.
+          // Level 0 items block Level 2 items because they don't support stacking.
+          if (!def || (def.level !== 2 && def.level !== 0) || item.zoneId !== zone.id) return null;
           return {
             item,
             definition: def,
@@ -649,11 +707,15 @@ function App() {
         definition,
         definition.id,
         startPoint,
-        currentLevel2Placements,
-        measuredFootprints
+        level2AndBlockerPlacements,
+        measuredFootprints,
+        LEVEL2_COMPACT_GAP
       );
 
-      if (!placement) return current;
+      if (!placement) {
+        setTimeout(() => setShowNoSpaceModal(true), 0);
+        return current;
+      }
 
       const nextItems = [
         ...current,
@@ -668,8 +730,8 @@ function App() {
         }
       ];
       
-      // Compact with NO blockers to ensure they stay on their own tier
-      return compactItems(nextItems, zone.id, [2], []);
+      // Compact Level 2 items, treating Level 0 as blockers
+      return compactItems(nextItems, zone.id, [2], [0]);
     });
     return;
   }
@@ -1369,6 +1431,33 @@ function App() {
               type="button"
               className="modal-dismiss-btn"
               onClick={() => setShowNoBaseModal(false)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* No-space-left warning modal */}
+      {showNoSpaceModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="no-space-modal-title"
+          onClick={() => setShowNoSpaceModal(false)}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">🚫</div>
+            <h3 id="no-space-modal-title">Zone Full</h3>
+            <p>
+              There is not enough space in this zone to add another model.
+              Please remove an existing item or try a different zone.
+            </p>
+            <button
+              type="button"
+              className="modal-dismiss-btn"
+              onClick={() => setShowNoSpaceModal(false)}
             >
               Got it
             </button>

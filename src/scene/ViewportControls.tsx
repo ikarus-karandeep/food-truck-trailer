@@ -64,7 +64,7 @@ export default function ViewportControls({
           >
             <img src="/Images/Previous.png" />
           </button>
-          <button
+          {/* <button
             className="viewport-icon-button viewport-edit-button"
             onPointerDown={(event) => {
               event.stopPropagation();
@@ -73,7 +73,7 @@ export default function ViewportControls({
             title="Edit"
           >
             &#9998;
-          </button>
+          </button> */}
           <button
             className="viewport-icon-button viewport-icon-swapnext"
             onPointerDown={(event) => {
