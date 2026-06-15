@@ -1,6 +1,21 @@
-import { Clone, useGLTF, Html, Line, useTexture } from "@react-three/drei";
-import { useEffect, useMemo } from "react";
-import { Box3, Vector3, Mesh, Euler, Quaternion } from "three";
+import { Clone, useGLTF, Html, Line, useTexture, TransformControls } from "@react-three/drei";
+import { useEffect, useMemo, useState } from "react";
+import {
+    Box3,
+    Vector3,
+    Mesh,
+    Euler,
+    Quaternion,
+    Object3D,
+    BoxGeometry,
+    Matrix4
+} from "three";
+
+import { Evaluator, SUBTRACTION, Brush } from "three-bvh-csg";
+import type { PlacementView } from "../types";
+import { BufferGeometry } from "three";
+import { useRef } from "react";
+import type { MeasuredFootprint } from "./types";
 
 function formatDimensionFeet(feetDecimal: number) {
   const feet = Math.floor(feetDecimal);
@@ -102,15 +117,26 @@ function VisibleStageModel({
   rotationY = 0,
   onLoad,
   showMeasurements,
-  selectedCustomizationId
+  selectedCustomizationId,
+  placements = [],
+  measuredFootprints = {}
 }: {
   src: string;
   rotationY?: number;
   onLoad?: () => void;
   showMeasurements?: boolean;
   selectedCustomizationId?: string;
+  placements?: PlacementView[];
+  measuredFootprints?: Record<string, MeasuredFootprint>;
 }) {
   const gltf = useGLTF(src);
+  const [nativeWindowPos, setNativeWindowPos] = useState<Vector3 | null>(null);
+  const [windowMoved, setWindowMoved] = useState(false);
+
+  useEffect(() => {
+    setNativeWindowPos(null);
+    setWindowMoved(false);
+  }, [src]);
 
   useEffect(() => {
     // Call onLoad when the model AND textures (dependent on selectedCustomizationId)
@@ -133,19 +159,75 @@ function VisibleStageModel({
         }
       : { A: "/Textures/16ft_Coffee_A.png", B: "/Textures/16ft_Coffee_A.png", C: "/Textures/16ft_Coffee_A.png", D: "/Textures/16ft_Coffee_A.png" } // Fallback
   );
+  const originalPlaneGeometry = useRef<BufferGeometry | null>(null);
+  // Stores original geometries for ALL wall-side meshes that need to be cut (keyed by mesh name)
+  const originalWallGeometries = useRef<Map<string, BufferGeometry>>(new Map());
+  // Original world positions of Window group and WindowBox — needed to compute drag delta for cutter placement
+  const originalWindowGroupPos = useRef<Vector3 | null>(null);
+  const originalWindowBoxPos = useRef<Vector3 | null>(null);
 
-  const scene = useMemo(() => {
+  // Capture clean geometries and original positions from the source GLTF (never mutated by CSG).
+  useEffect(() => {
+    originalPlaneGeometry.current = null;
+    originalWallGeometries.current.clear();
+    originalWindowGroupPos.current = null;
+    originalWindowBoxPos.current = null;
+
+    gltf.scene.updateMatrixWorld(true);
+    gltf.scene.traverse((child: any) => {
+      const name: string = child.name;
+      const nameLower = name.toLowerCase();
+
+      if (child.isMesh) {
+        if (name === "Plane_006") {
+          originalPlaneGeometry.current = (child as Mesh).geometry.clone();
+          originalWallGeometries.current.set(name, (child as Mesh).geometry.clone());
+        } else if (nameLower.startsWith("wrap_image_")) {
+          originalWallGeometries.current.set(name, (child as Mesh).geometry.clone());
+        } else if (nameLower.includes("windowbox")) {
+          const box = new Box3().setFromObject(child);
+          const center = new Vector3();
+          box.getCenter(center);
+          originalWindowBoxPos.current = center;
+        }
+      } else if (nameLower === "window") {
+        const p = new Vector3();
+        (child as Object3D).getWorldPosition(p);
+        originalWindowGroupPos.current = p;
+
+        // Compute bounding box as a fallback if no windowbox is found later
+        const box = new Box3().setFromObject(child);
+        const center = new Vector3();
+        box.getCenter(center);
+
+        // We'll set originalWindowBoxPos right here as a fallback in case we never find 'windowbox'
+        if (!originalWindowBoxPos.current) {
+          originalWindowBoxPos.current = center;
+        }
+
+        // Initialize window position so CSG cut runs immediately on load (no drag required)
+        setNativeWindowPos((child as Object3D).position.clone());
+        setWindowMoved(true);
+      }
+    });
+
+    console.log("[INIT] windowGroupOriginalPos:", originalWindowGroupPos.current);
+    console.log("[INIT] windowBoxOriginalPos:", originalWindowBoxPos.current);
+    console.log("[INIT] wallGeometries:", [...originalWallGeometries.current.keys()]);
+  }, [gltf.scene]);
+
+  const rawScene = useMemo(() => {
     const cloned = gltf.scene.clone(true);
-    
+
     cloned.traverse((child: any) => {
       if (child.isMesh) {
         const mesh = child as Mesh;
         const name = mesh.name.toLowerCase();
-        
+
         const isWrapMesh = name.includes("wrap") && name.includes("image");
         const isSideMesh = name.includes("side") && (name.includes("right") || name.includes("left") || name.includes("front") || name.includes("back"));
-        
-        const isTargetMesh = isWrapMesh || isSideMesh;
+
+        const isTargetMesh = mesh.name === "Plane_006";
 
         if (isTargetMesh) {
           let sideTexture = null;
@@ -158,9 +240,9 @@ function VisibleStageModel({
             const applyToMaterial = (mat: any) => {
                 const newMat = mat.clone();
                 newMat.map = sideTexture;
-                newMat.map.flipY = false; 
+                newMat.map.flipY = false;
                 newMat.needsUpdate = true;
-                if (newMat.color) newMat.color.set("white"); 
+                if (newMat.color) newMat.color.set("white");
                 newMat.polygonOffset = true;
                 newMat.polygonOffsetFactor = -4;
                 newMat.polygonOffsetUnits = -4;
@@ -174,8 +256,8 @@ function VisibleStageModel({
             } else {
               mesh.material = applyToMaterial(mesh.material);
             }
-            
-            mesh.visible = true; 
+
+            mesh.visible = true;
             mesh.renderOrder = 10;
           } else {
             if (isWrapMesh) {
@@ -193,15 +275,15 @@ function VisibleStageModel({
 
 
   const metrics = useMemo(() => {
-    scene.updateWorldMatrix(true, true);
+    rawScene.updateWorldMatrix(true, true);
     const combinedBox = new Box3();
-    scene.traverseVisible((child: any) => {
+    rawScene.traverseVisible((child: any) => {
       const mesh = child as Mesh;
       if (!mesh.isMesh) return;
       combinedBox.union(new Box3().setFromObject(mesh, true));
     });
     const bounds = combinedBox.isEmpty()
-      ? new Box3().setFromObject(scene, true)
+      ? new Box3().setFromObject(rawScene, true)
       : combinedBox;
 
     const center = bounds.getCenter(new Vector3());
@@ -218,6 +300,167 @@ function VisibleStageModel({
         z: -center.z
       }
     };
+  }, [rawScene]);
+
+  const scene = useMemo(() => {
+    const csgScene = rawScene.clone(true);
+
+    // No CSG needed until user has actually dragged the window
+    if (!nativeWindowPos || !windowMoved) {
+      // Still hide the WindowBox helper mesh so it doesn't show in the model
+      csgScene.traverse((child: any) => {
+        if (child.isMesh && child.name.toLowerCase().includes("windowbox")) {
+          child.visible = false;
+        }
+      });
+      return csgScene;
+    }
+
+    // Bail if we don't have the original geometries captured yet
+    if (originalWallGeometries.current.size === 0) return csgScene;
+    if (!originalWindowGroupPos.current) return csgScene;
+
+    // Use originalWindowBoxPos if available, else fallback to window group pos
+    const baseBoxPos = originalWindowBoxPos.current || originalWindowGroupPos.current;
+
+    // Hide WindowBox helper mesh
+    csgScene.traverse((child: any) => {
+      if (child.isMesh && child.name.toLowerCase().includes("windowbox")) child.visible = false;
+    });
+
+    // Also move the Window group visually in csgScene so the frame appears at the right place
+    let windowGroupNode: Object3D | null = null;
+    csgScene.traverse((child: any) => {
+      if (child.name.toLowerCase() === "window") windowGroupNode = child as Object3D;
+    });
+    if (windowGroupNode) {
+      (windowGroupNode as Object3D).position.copy(nativeWindowPos);
+      (windowGroupNode as Object3D).updateMatrixWorld(true);
+    }
+    csgScene.updateMatrixWorld(true);
+
+    // Compute dragDelta in WORLD space. The Window group was dragged and nativeWindowPos is its new LOCAL position.
+    // By updating its local position and grabbing its new world position, we can find the true world delta.
+    const newWorldPos = new Vector3();
+    if (windowGroupNode) {
+      (windowGroupNode as Object3D).getWorldPosition(newWorldPos);
+    } else {
+      newWorldPos.copy(originalWindowGroupPos.current);
+    }
+    
+    const dragDelta = new Vector3().subVectors(newWorldPos, originalWindowGroupPos.current);
+    let cutterWorldPos = new Vector3().addVectors(baseBoxPos, dragDelta);
+
+    // Get WindowBox geometry for cutter sizing, fallback to Window group bounds
+    let windowBoxMesh: Mesh | null = null;
+    let glassMesh: Mesh | null = null;
+    // Find the glass pane: the flattest mesh (smallest depth) inside the window group that covers most of the opening
+    let smallestDepth = Infinity;
+    csgScene.traverse((child: any) => {
+      if (!child.isMesh) return;
+      if (child.name.toLowerCase().includes("windowbox")) windowBoxMesh = child as Mesh;
+      if (windowGroupNode && (windowGroupNode as Object3D).getObjectByName(child.name)) {
+        const b = new Box3().setFromObject(child);
+        const w = b.max.x - b.min.x;
+        const h = b.max.y - b.min.y;
+        const l = b.max.z - b.min.z;
+        const minDim = Math.min(w, h, l);
+        // Must be reasonably large (>0.5 in two dimensions) and flattest mesh
+        if (w > 0.5 && h > 0.5 && minDim < smallestDepth) {
+          smallestDepth = minDim;
+          glassMesh = child as Mesh;
+        }
+      }
+    });
+
+    let boxW = 1.0, boxH = 0.8, boxL = 0.5;
+
+    if (glassMesh) {
+      // Use the glass pane mesh directly — its bbox IS the wall opening
+      const gm = glassMesh as Mesh;
+      gm.updateWorldMatrix(true, false);
+      const geomClone = gm.geometry.clone().applyMatrix4(gm.matrixWorld);
+      const bbox = new Box3().setFromBufferAttribute(geomClone.attributes.position as any);
+      geomClone.dispose();
+      boxW = bbox.max.x - bbox.min.x;
+      boxH = Math.max(0.1, bbox.max.y - bbox.min.y);
+      boxL = bbox.max.z - bbox.min.z;
+      // Use glass center for cut position so hole aligns with glass, not outer frame center
+      const glassCenter = new Vector3();
+      bbox.getCenter(glassCenter);
+      cutterWorldPos.copy(glassCenter);
+    } else if (windowBoxMesh) {
+      // Compute bbox from the mesh's own geometry in world space (avoids including children)
+      const wbMesh = windowBoxMesh as Mesh;
+      wbMesh.updateWorldMatrix(true, false);
+      const geomClone = wbMesh.geometry.clone().applyMatrix4(wbMesh.matrixWorld);
+      const bbox = new Box3().setFromBufferAttribute(geomClone.attributes.position as any);
+      geomClone.dispose();
+      boxW = Math.max(0.1, (bbox.max.x - bbox.min.x) - 0.155);
+      boxH = Math.max(0.1, (bbox.max.y - bbox.min.y) - 0.187);
+      boxL = bbox.max.z - bbox.min.z;
+    } else if (windowGroupNode) {
+      const bbox = new Box3().setFromObject(windowGroupNode);
+      boxW = bbox.max.x - bbox.min.x;
+      boxH = Math.max(0.1, bbox.max.y - bbox.min.y);
+      boxL = bbox.max.z - bbox.min.z;
+    } else {
+      return csgScene;
+    }
+
+    // Extend depth so cutter always punches fully through any thin wall/wrap mesh.
+    // Do NOT shrink W/H — the WindowBox is already sized to the opening.
+    if (boxW > boxL) { boxL = 1.5; }
+    else              { boxW = 1.5; }
+
+const cutterGeom = new BoxGeometry(boxW, boxH, boxL);
+    console.log("[CSG] cutter size W/H/L:", boxW, boxH, boxL, "cutterWorldPos:", cutterWorldPos);
+
+    const evaluator = new Evaluator();
+    evaluator.useGroups = false;
+
+    // Cut every wall mesh that has a stored original geometry (Plane_006 + all wrap_image_* overlays)
+    csgScene.traverse((child: any) => {
+      if (!child.isMesh) return;
+      const originalGeom = originalWallGeometries.current.get(child.name);
+      if (!originalGeom) return;
+
+      const mesh = child as Mesh;
+      mesh.updateWorldMatrix(true, false);
+      const meshWorldMatrix = mesh.matrixWorld.clone();
+      const meshWorldInverse = meshWorldMatrix.clone().invert();
+
+      // Express mesh geometry in world space using the pristine original
+      const geomWorld = originalGeom.clone();
+      geomWorld.applyMatrix4(meshWorldMatrix);
+      const meshBrush = new Brush(geomWorld, mesh.material);
+      meshBrush.updateMatrixWorld(true);
+
+      // Cutter positioned at the dragged world position
+      const cutter = new Brush(cutterGeom.clone(), mesh.material);
+      cutter.position.copy(cutterWorldPos);
+      cutter.updateMatrix();
+      cutter.updateMatrixWorld(true);
+
+      const result = evaluator.evaluate(meshBrush, cutter, SUBTRACTION);
+
+      // Convert result back to mesh local space
+      result.geometry.applyMatrix4(meshWorldInverse);
+      mesh.geometry.dispose();
+      mesh.geometry = result.geometry;
+    });
+
+    return csgScene;
+  }, [rawScene, nativeWindowPos, windowMoved, originalWallGeometries, placements, measuredFootprints]);
+
+  // Attach TransformControls to the "Window" parent group so WindowBox + all frame
+  // meshes (Window_with_frame_60_open011_*) all drag together with a single gizmo.
+  const windowBoxNode = useMemo<Object3D | null>(() => {
+    let found: Object3D | null = null;
+    scene.traverse((child: any) => {
+      if (child.name.toLowerCase() === "window") found = child as Object3D;
+    });
+    return found;
   }, [scene]);
 
   // Compute realistic dimensions
@@ -243,15 +486,24 @@ function VisibleStageModel({
         scale={metrics.scale}
         position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
       >
-        <Clone object={scene} />
+        <primitive object={scene} />
+        {windowBoxNode && (
+          <TransformControls
+            object={windowBoxNode}
+            mode="translate"
+            showY={false}
+            showZ={false}
+            showX={true}
+            onMouseUp={(e: any) => {
+  if (e.target?.object) {
+    setNativeWindowPos(e.target.object.position.clone());
+    setWindowMoved(true);
+  }
+}}
+          />
+        )}
         {showMeasurements && (
           <group position={[metrics.center.x, metrics.center.y, metrics.center.z]}>
-            {/* Wireframe box to debug actual bounds */}
-            {/* <mesh>
-              <boxGeometry args={[metrics.size.x, metrics.size.y, metrics.size.z]} />
-              <meshBasicMaterial color="#ff00ff" wireframe />
-            </mesh> */}
-
             {/* Length (X-axis) - Front Bottom Edge */}
             <DimensionAnnotation 
                start={new Vector3(-hw, -hh - gap, hl + gap)} 
@@ -285,18 +537,29 @@ export default function StageModel({
   rotationY = 0,
   onLoad,
   showMeasurements,
-  selectedCustomizationId
+  selectedCustomizationId,
+  placements,
+  measuredFootprints
 }: {
   src: string | null;
   rotationY?: number;
   onLoad?: () => void;
   showMeasurements?: boolean;
   selectedCustomizationId?: string;
+  placements?: PlacementView[];
+  measuredFootprints?: Record<string, MeasuredFootprint>;
 }) {
   if (!src) {
     return null;
   }
 
-  return <VisibleStageModel src={src} rotationY={rotationY} onLoad={onLoad} showMeasurements={showMeasurements} selectedCustomizationId={selectedCustomizationId} />;
+  return <VisibleStageModel 
+            src={src} 
+            rotationY={rotationY} 
+            onLoad={onLoad} 
+            showMeasurements={showMeasurements} 
+            selectedCustomizationId={selectedCustomizationId} 
+            placements={placements}
+            measuredFootprints={measuredFootprints}
+         />;
 }
-

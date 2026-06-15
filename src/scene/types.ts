@@ -4,4 +4,4 @@ export type MeasuredFootprint = {
   height: number;
 };
 
-export const PLACEHOLDER_HEIGHT = 0.85;
+export const PLACEHOLDER_HEIGHT = 0.65;

@@ -1357,6 +1357,11 @@ function App() {
               onViewportEquipmentChange={updatePlacedDefinition}
               onMeasuredFootprintsChange={setMeasuredFootprints}
               onSwapPlaced={swapPlacedWithNeighbor}
+              onUpdatePlacement={(id, pos) => {
+                setPlaced(curr => curr.map(it => 
+                  it.id === id ? { ...it, manualPlacement: { ...(it.manualPlacement || {x:pos.x, y:pos.y, z:pos.z, rotationY:0}), x: pos.x, y: pos.y, z: pos.z } } : it
+                ));
+              }}
               onLoadingChange={setIsLoading}
               showMeasurements={showMeasurements}
               selectedCustomizationId={selectedCustomizationId}

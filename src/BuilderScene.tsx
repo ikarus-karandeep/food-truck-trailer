@@ -2,7 +2,8 @@ import {
   Environment,
   // GizmoHelper,
   // GizmoViewport,
-  OrbitControls
+  OrbitControls,
+  TransformControls
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -51,6 +52,7 @@ type BuilderSceneProps = {
   onViewportEquipmentChange: (placedId: string, definitionId: string) => void;
   onMeasuredFootprintsChange: (footprints: Record<string, MeasuredFootprint>) => void;
   onSwapPlaced: (placedId: string, direction: "left" | "right") => void;
+  onUpdatePlacement?: (placedId: string, pos: { x: number; y: number; z: number }) => void;
   onLoadingChange: (loading: boolean) => void;
   showMeasurements?: boolean;
   selectedCustomizationId?: string;
@@ -75,6 +77,7 @@ export default function BuilderScene({
   onViewportEquipmentChange,
   onMeasuredFootprintsChange,
   onSwapPlaced,
+  onUpdatePlacement,
   onLoadingChange,
   showMeasurements,
   selectedCustomizationId
@@ -352,6 +355,8 @@ export default function BuilderScene({
               onLoad={() => setStageLoading(false)}
               showMeasurements={showMeasurements}
               selectedCustomizationId={selectedCustomizationId}
+              placements={placements}
+              measuredFootprints={measuredFootprints}
             />
           </Suspense>
           <Suspense fallback={null}>
@@ -395,55 +400,32 @@ export default function BuilderScene({
               ? getSwapAvailability(placementView)
               : { canSwapLeft: false, canSwapRight: false };
 
-            return (
-              <group
-                key={item.id}
-                position={[placement.x, placement.y, placement.z]}
-                rotation={[0, placement.rotationY, 0]}
-                scale={placement.scale}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onPlacedSelect(item.id);
-                }}
-                onPointerEnter={(event) => {
-                  event.stopPropagation();
-                  keepControlsVisible(item.id);
-                }}
-                onPointerLeave={(event) => {
-                  event.stopPropagation();
-                  scheduleControlsHide(item.id);
-                }}
-              >
-                <Suspense fallback={null}>
-                  <EquipmentVisual
-                    definition={definition}
-                    scaleMultiplier={1}
-                    onFootprintChange={(footprint) => handleFootprintChange(item.id, footprint)}
-                  />
-                </Suspense>
-                {isHovered && placementView ? (
-                  <ViewportControls
-                    selectedPlaced={placementView}
-                    isEditingSelected={editingPlacedId === item.id}
-                    editableEquipmentOptions={editableEquipmentOptions}
-                  measuredFootprint={measuredFootprint}
-                  canSwapLeft={swapAvailability.canSwapLeft}
-                  canSwapRight={swapAvailability.canSwapRight}
-                  onDeletePlaced={onDeletePlaced}
-                  onSwapPlaced={onSwapPlaced}
-                    onToggleViewportEdit={onToggleViewportEdit}
-                    onViewportEquipmentChange={onViewportEquipmentChange}
-                    onControlsHoverChange={(hovered) => {
-                      if (hovered) {
-                        keepControlsVisible(item.id);
-                        return;
-                      }
+            const isHorizontal = placementView ? placementView.zone.length >= placementView.zone.width : false;
 
-                      scheduleControlsHide(item.id);
-                    }}
-                  />
-                ) : null}
-              </group>
+            return (
+              <PlacedItemNode 
+                key={item.id}
+                item={item}
+                definition={definition}
+                placement={placement}
+                placementView={placementView}
+                isHovered={isHovered}
+                measuredFootprint={measuredFootprint}
+                swapAvailability={swapAvailability}
+                isHorizontal={isHorizontal}
+                editingPlacedId={editingPlacedId}
+                editableEquipmentOptions={editableEquipmentOptions}
+                onPlacedSelect={onPlacedSelect}
+                keepControlsVisible={keepControlsVisible}
+                scheduleControlsHide={scheduleControlsHide}
+                handleFootprintChange={handleFootprintChange}
+                onDeletePlaced={onDeletePlaced}
+                onSwapPlaced={onSwapPlaced}
+                onToggleViewportEdit={onToggleViewportEdit}
+                onViewportEquipmentChange={onViewportEquipmentChange}
+                onUpdatePlacement={onUpdatePlacement}
+                orbitControlsRef={orbitControlsRef}
+              />
             );
           })}
         </group>
@@ -451,31 +433,12 @@ export default function BuilderScene({
           <GizmoViewport axisColors={["#111111", "#6b7280", "#d97706"]} labelColor="#ffffff" />
         </GizmoHelper> */}
         <OrbitControls
+          makeDefault
           ref={orbitControlsRef}
           enablePan
           enableZoom
           enableRotate
           zoomSpeed={1.2}
-          minAzimuthAngle={
-            selectedStepId === "equipment-side" ? -0.35
-            : selectedStepId === "serving-side" ? -0.35
-            : -Infinity
-          }
-          maxAzimuthAngle={
-            selectedStepId === "equipment-side" ? 0.35
-            : selectedStepId === "serving-side" ? 0.35
-            : Infinity
-          }
-          minPolarAngle={
-            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
-              ? Math.PI / 2.8
-              : 0
-          }
-          maxPolarAngle={
-            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
-              ? Math.PI / 2
-              : Math.PI
-          }
           minDistance={1.2}
           maxDistance={80}
         />
@@ -483,3 +446,60 @@ export default function BuilderScene({
     </div>
   );
 }
+
+function PlacedItemNode({
+  item, definition, placement, placementView, isHovered, measuredFootprint, swapAvailability, isHorizontal,
+  editingPlacedId, editableEquipmentOptions, onPlacedSelect, keepControlsVisible, scheduleControlsHide,
+  handleFootprintChange, onDeletePlaced, onSwapPlaced, onToggleViewportEdit, onViewportEquipmentChange,
+  onUpdatePlacement, orbitControlsRef
+}: any) {
+  return (
+    <group
+      position={[placement.x, placement.y, placement.z]}
+      rotation={[0, placement.rotationY, 0]}
+      scale={placement.scale}
+      onClick={(event) => {
+        event.stopPropagation();
+        onPlacedSelect(item.id);
+      }}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        keepControlsVisible(item.id);
+      }}
+      onPointerLeave={(event) => {
+        event.stopPropagation();
+        scheduleControlsHide(item.id);
+      }}
+    >
+      <Suspense fallback={null}>
+        <EquipmentVisual
+          definition={definition}
+          scaleMultiplier={1}
+          onFootprintChange={(footprint: any) => handleFootprintChange(item.id, footprint)}
+        />
+      </Suspense>
+      {isHovered && placementView ? (
+        <ViewportControls
+          selectedPlaced={placementView}
+          isEditingSelected={editingPlacedId === item.id}
+          editableEquipmentOptions={editableEquipmentOptions}
+          measuredFootprint={measuredFootprint}
+          canSwapLeft={swapAvailability.canSwapLeft}
+          canSwapRight={swapAvailability.canSwapRight}
+          onDeletePlaced={onDeletePlaced}
+          onSwapPlaced={onSwapPlaced}
+          onToggleViewportEdit={onToggleViewportEdit}
+          onViewportEquipmentChange={onViewportEquipmentChange}
+          onControlsHoverChange={(hovered: boolean) => {
+            if (hovered) {
+              keepControlsVisible(item.id);
+              return;
+            }
+            scheduleControlsHide(item.id);
+          }}
+        />
+      ) : null}
+    </group>
+  );
+}
+
