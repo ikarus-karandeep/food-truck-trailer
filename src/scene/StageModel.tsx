@@ -1,4 +1,4 @@
-import { Clone, useGLTF, Html, Line, useTexture, TransformControls } from "@react-three/drei";
+import { useGLTF, Html, Line, useTexture, TransformControls } from "@react-three/drei";
 import { useEffect, useMemo, useState } from "react";
 import {
     Box3,
@@ -8,8 +8,6 @@ import {
     Quaternion,
     Object3D,
     BoxGeometry,
-    Matrix4,
-    Group
 } from "three";
 
 import { Evaluator, SUBTRACTION, Brush } from "three-bvh-csg";

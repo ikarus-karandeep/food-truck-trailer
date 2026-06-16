@@ -25,7 +25,6 @@ export default function ViewportControls({
   canSwapRight,
   onDeletePlaced,
   onSwapPlaced,
-  onToggleViewportEdit,
   onViewportEquipmentChange,
   onControlsHoverChange
 }: ViewportControlsProps) {

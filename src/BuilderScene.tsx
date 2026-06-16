@@ -3,7 +3,7 @@ import {
   // GizmoHelper,
   // GizmoViewport,
   OrbitControls,
-  TransformControls
+  // TransformControls
 } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -474,10 +474,10 @@ export default function BuilderScene({
 }
 
 function PlacedItemNode({
-  item, definition, placement, placementView, isHovered, measuredFootprint, swapAvailability, isHorizontal,
+  item, definition, placement, placementView, isHovered, measuredFootprint, swapAvailability, 
   editingPlacedId, editableEquipmentOptions, onPlacedSelect, keepControlsVisible, scheduleControlsHide,
   handleFootprintChange, onDeletePlaced, onSwapPlaced, onToggleViewportEdit, onViewportEquipmentChange,
-  onUpdatePlacement, orbitControlsRef
+
 }: any) {
   return (
     <group
