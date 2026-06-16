@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef, type CSSProperties }
 import { Vector3 } from "three";
 import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
 import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
-import { getZoneAxisInfo, resolveNonIntersectingPlacement } from "./scene/dropZone";
+import { getEquipmentAxisSize, getZoneAxisInfo, resolveNonIntersectingPlacement } from "./scene/dropZone";
 import type { MeasuredFootprint } from "./scene/types";
 import { PLACEHOLDER_HEIGHT } from "./scene/types";
 import type {
@@ -269,6 +269,42 @@ function App() {
 
     const updatedPositions = new Map<string, number>();
     const PADDING = levels.includes(2) ? LEVEL2_COMPACT_GAP : 0;
+    
+    const rawGroundItemsExt = items
+      .filter((item) => {
+        const def = equipmentMap[item.definitionId];
+        return item.zoneId === zoneId && def && def.level === 1;
+      })
+      .map((item) => {
+        const def = equipmentMap[item.definitionId]!;
+        const fp = measuredFootprints[item.id];
+        const axisPos = horizontal ? (item.manualPlacement?.z ?? zone.z) : (item.manualPlacement?.x ?? zone.x);
+        const halfSize = (horizontal ? (fp?.length ?? def.size.length) : (fp?.width ?? def.size.width)) / 2;
+        return { start: axisPos - halfSize, end: axisPos + halfSize, height: def.size.height };
+      })
+      .sort((a, b) => a.start - b.start);
+
+    const mergedGround: typeof rawGroundItemsExt = [];
+    for (const seg of rawGroundItemsExt) {
+      if (mergedGround.length === 0) {
+        mergedGround.push({ ...seg });
+      } else {
+        const last = mergedGround[mergedGround.length - 1];
+        if (seg.start <= last.end + 0.01 && Math.abs(seg.height - last.height) < 0.01) {
+          last.end = Math.max(last.end, seg.end);
+        } else {
+          mergedGround.push({ ...seg });
+        }
+      }
+    }
+
+    const cutPoints = new Set<number>();
+    for (const gr of mergedGround) {
+       cutPoints.add(gr.start);
+       cutPoints.add(gr.end);
+    }
+    const cuts = Array.from(cutPoints);
+
     const peersDescending = [...peers].sort(
       (a, b) => b.axisPos - a.axisPos || a.originalIndex - b.originalIndex
     );
@@ -315,11 +351,27 @@ function App() {
           (blocker) => start < blocker.end && center + checkHalf > blocker.start
         );
 
-        if (!overlap) {
-          break;
+        if (overlap) {
+          center = overlap.start - peer.halfSize - PADDING;
+          continue;
         }
 
-        center = overlap.start - peer.halfSize - PADDING;
+        if (levels.includes(2) && cuts.length > 0) {
+          let straddledCut = null;
+          for (const cut of cuts) {
+             if (cut > center - peer.halfSize + 0.001 && cut < center + peer.halfSize - 0.001) {
+                if (straddledCut === null || cut < straddledCut) {
+                   straddledCut = cut;
+                }
+             }
+          }
+          if (straddledCut !== null) {
+            center = straddledCut - peer.halfSize;
+            continue;
+          }
+        }
+
+        break;
       }
 
       if (center - peer.halfSize < axisMin) {
@@ -330,16 +382,16 @@ function App() {
       cursor = center - peer.halfSize - PADDING;
     }
 
-    function getLevel2YForItem(item: PlacedEquipment, items: PlacedEquipment[]) {
+    function getLevel2YForItem(item: PlacedEquipment, items: PlacedEquipment[], overrideAxisPos?: number) {
       const zone = zoneMap[item.zoneId as ZoneId];
       if (!zone) {
         return PLACEHOLDER_HEIGHT;
       }
 
       const horizontal = zone.length >= zone.width;
-      const axisPos = horizontal
+      const axisPos = overrideAxisPos ?? (horizontal
         ? item.manualPlacement?.z ?? zone.z
-        : item.manualPlacement?.x ?? zone.x;
+        : item.manualPlacement?.x ?? zone.x);
 
       // Find the ground-tier item (Level 0 or 1) that occupies this axis position
       const groundSupport = items.find((other) => {
@@ -395,7 +447,7 @@ function App() {
       // Ensure compactness maintains front alignment
       const baseX = horizontal ? (zone.x + perpOffsetX) : newAxisPos;
       const calcY = levels.includes(2)
-        ? getLevel2YForItem(item, items)
+        ? getLevel2YForItem(item, items, newAxisPos)
         : zone.lineY;
       
       // If no valid support, place far below floor to effectively hide it.
@@ -497,16 +549,14 @@ function App() {
   ): PlacedEquipment[] {
     const deletedDefinition = equipmentMap[deletedItem.definitionId];
     if (!deletedDefinition) return remainingItems;
-    // Level 0 and Level 1 are both ground-tier — always compact them together.
-    // Level 2 compacts independently so that stacked rows stay gapless.
-    const levels = deletedDefinition.level <= 1 ? [0, 1] : [2];
-    const compacted = compactItems(
-      remainingItems,
-      deletedItem.zoneId,
-      levels,
-      // Level 2 items treat Level 0 models as blockers to avoid landing on sinks.
-      levels.includes(2) ? [0] : [] 
-    );
+
+    // Compact ground tier (level 0 + 1) together.
+    let compacted = compactItems(remainingItems, deletedItem.zoneId, [0, 1], []);
+
+    // Always recompute level2 Y after any ground-tier change so stacked items
+    // land at the correct height without waiting for the async useEffect.
+    compacted = compactItems(compacted, deletedItem.zoneId, [2], [0]);
+
     return compacted;
   }
 
@@ -569,60 +619,6 @@ function App() {
         updated = compactItems(updated, zoneId as ZoneId, [0, 1], []);
       });
 
-      // After ground tier compaction, a large ground item clamped to the left wall
-      // can visually cover a smaller level2 item at the same position. Detect this
-      // and displace the level2 item just past the ground item so the level2
-      // compaction can repack it to a valid spot.
-      updated = updated.map((item) => {
-        const def = equipmentMap[item.definitionId];
-        if (!def || def.level !== 2) return item;
-        const zone = zoneMap[item.zoneId as ZoneId];
-        if (!zone) return item;
-        const horizontal = zone.length >= zone.width;
-        const l2Pos = horizontal
-          ? (item.manualPlacement?.z ?? zone.z)
-          : (item.manualPlacement?.x ?? zone.x);
-        const l2Fp = measuredFootprints[item.id];
-        const l2Half = (horizontal ? l2Fp?.length ?? def.size.length : l2Fp?.width ?? def.size.width) / 2;
-        const l2Start = l2Pos - l2Half;
-        const l2End = l2Pos + l2Half;
-
-        // Find any ground-tier item whose footprint fully contains this level2 item
-        const swallowedBy = updated.find((other) => {
-          if (other.id === item.id || other.zoneId !== item.zoneId) return false;
-          const otherDef = equipmentMap[other.definitionId];
-          if (!otherDef || otherDef.level > 1) return false;
-          const otherPos = horizontal
-            ? (other.manualPlacement?.z ?? zone.z)
-            : (other.manualPlacement?.x ?? zone.x);
-          const otherFp = measuredFootprints[other.id];
-          const otherHalf = (horizontal ? otherFp?.length ?? otherDef.size.length : otherFp?.width ?? otherDef.size.width) / 2;
-          // Ground item fully covers the level2 item and is larger
-          return otherPos - otherHalf <= l2Start && otherPos + otherHalf >= l2End && otherHalf > l2Half;
-        });
-
-        if (!swallowedBy) return item;
-
-        const otherDef = equipmentMap[swallowedBy.definitionId]!;
-        const otherPos = horizontal
-          ? (swallowedBy.manualPlacement?.z ?? zone.z)
-          : (swallowedBy.manualPlacement?.x ?? zone.x);
-        const otherFp = measuredFootprints[swallowedBy.id];
-        const otherHalf = (horizontal ? otherFp?.length ?? otherDef.size.length : otherFp?.width ?? otherDef.size.width) / 2;
-        const displaced = otherPos + otherHalf + l2Half;
-
-        return {
-          ...item,
-          manualPlacement: item.manualPlacement
-            ? {
-                ...item.manualPlacement,
-                z: horizontal ? displaced : item.manualPlacement.z,
-                x: !horizontal ? displaced : item.manualPlacement.x
-              }
-            : item.manualPlacement
-        };
-      });
-
       // Reflow Level 2 items independently so they keep their own order and
       // measured spacing, instead of snapping back to the nearest support.
       const level2Zones = new Set<string>();
@@ -650,7 +646,7 @@ function App() {
 
       return changed ? updated : current;
     });
-  }, [placed, measuredFootprints, equipmentMap, zoneMap]);
+  }, [measuredFootprints, equipmentMap, zoneMap]);
 
   /** Find Level-2 ids stacked on a given placed item (by x/z proximity). */
   function findStackedLevel2Ids(all: PlacedEquipment[], baseItem: PlacedEquipment): string[] {
@@ -811,6 +807,41 @@ function App() {
         })
         .filter((p): p is PlacementView => p !== null);
 
+      const rawGroundItemsExt = current
+        .filter((item) => {
+          const def = equipmentMap[item.definitionId];
+          return def && def.level === 1 && item.zoneId === zone.id;
+        })
+        .map((item) => {
+          const def = equipmentMap[item.definitionId]!;
+          const pos = axis.horizontal ? (item.manualPlacement?.z ?? zone.z) : (item.manualPlacement?.x ?? zone.x);
+          const fp = measuredFootprints[item.id];
+          const half = (axis.horizontal ? (fp?.length ?? def.size.length) : (fp?.width ?? def.size.width)) / 2;
+          return { start: pos - half, end: pos + half, height: def.size.height };
+        })
+        .sort((a, b) => a.start - b.start);
+
+      const mergedGround: typeof rawGroundItemsExt = [];
+      for (const seg of rawGroundItemsExt) {
+        if (mergedGround.length === 0) {
+          mergedGround.push({ ...seg });
+        } else {
+          const last = mergedGround[mergedGround.length - 1];
+          if (seg.start <= last.end + 0.01 && Math.abs(seg.height - last.height) < 0.01) {
+            last.end = Math.max(last.end, seg.end);
+          } else {
+            mergedGround.push({ ...seg });
+          }
+        }
+      }
+
+      const cutPoints = new Set<number>();
+      for (const gr of mergedGround) {
+         cutPoints.add(gr.start);
+         cutPoints.add(gr.end);
+      }
+      const cuts = Array.from(cutPoints);
+
       const placement = resolveNonIntersectingPlacement(
         zone,
         definition,
@@ -818,7 +849,8 @@ function App() {
         startPoint,
         level2AndBlockerPlacements,
         measuredFootprints,
-        LEVEL2_COMPACT_GAP
+        LEVEL2_COMPACT_GAP,
+        cuts
       );
 
       if (!placement) {
@@ -897,7 +929,7 @@ function App() {
         setEditingPlacedId(null);
       }, 0);
 
-      return [
+      const nextItems: PlacedEquipment[] = [
         ...current,
         {
           id: createdId,
@@ -906,6 +938,9 @@ function App() {
           manualPlacement: placement
         }
       ];
+
+      // Recompute level2 Y so stacked items immediately sit on the new ground item.
+      return compactItems(nextItems, zone.id, [2], [0]);
     });
   }
   function updatePlacedDefinition(id: string, definitionId: string) {
@@ -947,7 +982,14 @@ function App() {
     }
 
     const horizontal = currentPlacement.zone.length >= currentPlacement.zone.width;
-    const sortedPeers = placements
+    const currentItemHalf =
+      getEquipmentAxisSize(
+        currentPlacement.definition,
+        currentPlacement.item.id,
+        currentPlacement.zone,
+        measuredFootprints
+      ) / 2;
+    const sameLevelPeers = placements
       .filter(
         ({ item, definition, zone }) =>
           item.zoneId === currentPlacement.item.zoneId &&
@@ -960,52 +1002,69 @@ function App() {
 
         return aAxis - bAxis;
       });
-    const currentIndex = sortedPeers.findIndex(({ item }) => item.id === id);
-    const neighborIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
-    const neighbor = sortedPeers[neighborIndex];
+    const currentIndex = sameLevelPeers.findIndex(({ item }) => item.id === id);
+    const zoneAxis = getZoneAxisInfo(currentPlacement.zone);
+    const currentManualPlacement = currentPlacement.item.manualPlacement ?? {
+      x: currentPlacement.placement.x,
+      y: currentPlacement.placement.y,
+      z: currentPlacement.placement.z,
+      rotationY: currentPlacement.placement.rotationY
+    };
+    const currentAxis = horizontal ? currentManualPlacement.z : currentManualPlacement.x;
+    const neighbor =
+      currentIndex >= 0
+        ? sameLevelPeers[direction === "left" ? currentIndex - 1 : currentIndex + 1] ?? null
+        : null;
+    const activePlacements = placements.filter(
+      ({ item }) => item.zoneId === currentPlacement.item.zoneId && item.id !== id && (!neighbor || item.id !== neighbor.item.id)
+    );
 
-    if (currentIndex < 0) {
-      return;
-    }
+    const resolveAtAxis = (
+      targetDefinition: EquipmentDefinition,
+      targetItemId: string,
+      axisValue: number
+    ) => {
+      const point = horizontal
+        ? new Vector3(currentPlacement.zone.x, currentPlacement.zone.lineY, axisValue)
+        : new Vector3(axisValue, currentPlacement.zone.lineY, currentPlacement.zone.z);
+      return resolveNonIntersectingPlacement(
+        currentPlacement.zone,
+        targetDefinition,
+        targetItemId,
+        point,
+        activePlacements,
+        measuredFootprints
+      );
+    };
 
     if (!neighbor) {
-      const endPoint =
-        horizontal
-          ? new Vector3(
-              currentPlacement.zone.x,
-              currentPlacement.zone.lineY,
-              currentPlacement.zone.z +
-                (direction === "left" ? -1 : 1) * (currentPlacement.zone.length / 2)
-            )
-          : new Vector3(
-              currentPlacement.zone.x +
-                (direction === "left" ? -1 : 1) * (currentPlacement.zone.width / 2),
-              currentPlacement.zone.lineY,
-              currentPlacement.zone.z
-            );
-      const nextPlacement = resolveNonIntersectingPlacement(
-        currentPlacement.zone,
+      const edgeCandidate =
+        direction === "left"
+          ? zoneAxis.min + currentItemHalf
+          : zoneAxis.max - currentItemHalf;
+      const nextPlacement = resolveAtAxis(
         currentPlacement.definition,
         currentPlacement.item.id,
-        endPoint,
-        placements.filter(
-          ({ item }) => item.id !== id && item.zoneId === currentPlacement.item.zoneId
-        ),
-        measuredFootprints
+        edgeCandidate
       );
 
       if (!nextPlacement) {
         return;
       }
 
+      const resolvedY =
+        currentPlacement.definition.level === 2
+          ? currentPlacement.placement.y
+          : currentPlacement.zone.lineY;
+
       setPlaced((current) =>
         current.map((item) =>
-          item.id === id
+          item.id === currentPlacement.item.id
             ? {
                 ...item,
                 manualPlacement: {
                   ...nextPlacement,
-                  y: currentPlacement.placement.y,
+                  y: resolvedY,
                   rotationY: currentPlacement.placement.rotationY
                 }
               }
@@ -1017,38 +1076,70 @@ function App() {
       return;
     }
 
-    const currentManualPlacement = currentPlacement.item.manualPlacement ?? {
-      x: currentPlacement.placement.x,
-      y: currentPlacement.placement.y,
-      z: currentPlacement.placement.z,
-      rotationY: currentPlacement.placement.rotationY
-    };
     const neighborManualPlacement = neighbor.item.manualPlacement ?? {
       x: neighbor.placement.x,
       y: neighbor.placement.y,
       z: neighbor.placement.z,
       rotationY: neighbor.placement.rotationY
     };
+    const neighborAxis = horizontal ? neighborManualPlacement.z : neighborManualPlacement.x;
+    const nextCurrentPlacement = resolveAtAxis(
+      currentPlacement.definition,
+      currentPlacement.item.id,
+      neighborAxis
+    );
+    const nextNeighborPlacement = resolveAtAxis(
+      neighbor.definition,
+      neighbor.item.id,
+      currentAxis
+    );
 
-    setPlaced((current) =>
-      current.map((item) => {
+    if (!nextCurrentPlacement || !nextNeighborPlacement) {
+      return;
+    }
+
+    const currentResolvedY =
+      currentPlacement.definition.level === 2
+        ? currentPlacement.placement.y
+        : currentPlacement.zone.lineY;
+    const neighborResolvedY =
+      neighbor.definition.level === 2
+        ? neighbor.placement.y
+        : neighbor.zone.lineY;
+
+    setPlaced((current) => {
+      let result = current.map((item) => {
         if (item.id === currentPlacement.item.id) {
           return {
             ...item,
-            manualPlacement: neighborManualPlacement
+            manualPlacement: {
+              ...nextCurrentPlacement,
+              y: currentResolvedY,
+              rotationY: currentPlacement.placement.rotationY
+            }
           };
         }
-
         if (item.id === neighbor.item.id) {
           return {
             ...item,
-            manualPlacement: currentManualPlacement
+            manualPlacement: {
+              ...nextNeighborPlacement,
+              y: neighborResolvedY,
+              rotationY: neighbor.placement.rotationY
+            }
           };
         }
-
         return item;
-      })
-    );
+      });
+      const level = currentPlacement.definition.level;
+      if (level <= 1) {
+        result = compactItems(result, currentPlacement.item.zoneId, [0, 1], []);
+        result = compactItems(result, currentPlacement.item.zoneId, [2], [0]);
+      } else if (level === 2) {
+        result = compactItems(result, currentPlacement.item.zoneId, [2], [0]);
+      }
+      return result;
+    });
     setSelectedPlacedId(id);
     setEditingPlacedId(null);
   }

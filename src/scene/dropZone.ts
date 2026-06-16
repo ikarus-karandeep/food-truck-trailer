@@ -64,7 +64,8 @@ export function resolveNonIntersectingPlacement(
   point: Vector3,
   placements: PlacementView[],
   measuredFootprints: Record<string, MeasuredFootprint>,
-  gap = 0
+  gap = 0,
+  splitPoints?: number[]
 ) {
   const axis = getZoneAxisInfo(zone);
   const itemHalf = getEquipmentAxisSize(definition, measuredId, zone, measuredFootprints) / 2;
@@ -102,8 +103,24 @@ export function resolveNonIntersectingPlacement(
     freeSegments.push({ start: cursor, end: axis.max });
   }
 
+  let filteredSegments = freeSegments;
+  if (splitPoints && splitPoints.length > 0) {
+    for (const point of splitPoints) {
+      const nextSegments: Array<{start: number, end: number}> = [];
+      for (const seg of filteredSegments) {
+        if (point > seg.start + 0.001 && point < seg.end - 0.001) {
+          nextSegments.push({ start: seg.start, end: point });
+          nextSegments.push({ start: point, end: seg.end });
+        } else {
+          nextSegments.push(seg);
+        }
+      }
+      filteredSegments = nextSegments;
+    }
+  }
+
   const nearestFit =
-    freeSegments
+    filteredSegments
       .map((segment) => {
         const minCenter = segment.start + itemHalf;
         const maxCenter = segment.end - itemHalf;
