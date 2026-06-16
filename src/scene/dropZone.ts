@@ -108,7 +108,8 @@ export function resolveNonIntersectingPlacement(
         const minCenter = segment.start + itemHalf;
         const maxCenter = segment.end - itemHalf;
 
-        if (minCenter > maxCenter) {
+        // Allow up to 1mm of floating point error
+        if (minCenter > maxCenter + 0.001) {
           return null;
         }
 

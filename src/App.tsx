@@ -305,9 +305,14 @@ function App() {
       }
 
       while (true) {
-        const start = center - peer.halfSize;
+        // For Level 2 items, support validity is determined by the center point
+        // (getLevel2YForItem checks center only). Use a point check so that a wide
+        // level2 model whose edges hang over an adjacent sink is not pushed away —
+        // only move it if the center itself is over the blocker.
+        const checkHalf = levels.includes(2) ? 0 : peer.halfSize;
+        const start = center - checkHalf;
         const overlap = blockers.find(
-          (blocker) => start < blocker.end && center + peer.halfSize > blocker.start
+          (blocker) => start < blocker.end && center + checkHalf > blocker.start
         );
 
         if (!overlap) {
@@ -562,6 +567,60 @@ function App() {
       // Compact ground tier (level 0 + 1 together) per zone
       groundZones.forEach((zoneId) => {
         updated = compactItems(updated, zoneId as ZoneId, [0, 1], []);
+      });
+
+      // After ground tier compaction, a large ground item clamped to the left wall
+      // can visually cover a smaller level2 item at the same position. Detect this
+      // and displace the level2 item just past the ground item so the level2
+      // compaction can repack it to a valid spot.
+      updated = updated.map((item) => {
+        const def = equipmentMap[item.definitionId];
+        if (!def || def.level !== 2) return item;
+        const zone = zoneMap[item.zoneId as ZoneId];
+        if (!zone) return item;
+        const horizontal = zone.length >= zone.width;
+        const l2Pos = horizontal
+          ? (item.manualPlacement?.z ?? zone.z)
+          : (item.manualPlacement?.x ?? zone.x);
+        const l2Fp = measuredFootprints[item.id];
+        const l2Half = (horizontal ? l2Fp?.length ?? def.size.length : l2Fp?.width ?? def.size.width) / 2;
+        const l2Start = l2Pos - l2Half;
+        const l2End = l2Pos + l2Half;
+
+        // Find any ground-tier item whose footprint fully contains this level2 item
+        const swallowedBy = updated.find((other) => {
+          if (other.id === item.id || other.zoneId !== item.zoneId) return false;
+          const otherDef = equipmentMap[other.definitionId];
+          if (!otherDef || otherDef.level > 1) return false;
+          const otherPos = horizontal
+            ? (other.manualPlacement?.z ?? zone.z)
+            : (other.manualPlacement?.x ?? zone.x);
+          const otherFp = measuredFootprints[other.id];
+          const otherHalf = (horizontal ? otherFp?.length ?? otherDef.size.length : otherFp?.width ?? otherDef.size.width) / 2;
+          // Ground item fully covers the level2 item and is larger
+          return otherPos - otherHalf <= l2Start && otherPos + otherHalf >= l2End && otherHalf > l2Half;
+        });
+
+        if (!swallowedBy) return item;
+
+        const otherDef = equipmentMap[swallowedBy.definitionId]!;
+        const otherPos = horizontal
+          ? (swallowedBy.manualPlacement?.z ?? zone.z)
+          : (swallowedBy.manualPlacement?.x ?? zone.x);
+        const otherFp = measuredFootprints[swallowedBy.id];
+        const otherHalf = (horizontal ? otherFp?.length ?? otherDef.size.length : otherFp?.width ?? otherDef.size.width) / 2;
+        const displaced = otherPos + otherHalf + l2Half;
+
+        return {
+          ...item,
+          manualPlacement: item.manualPlacement
+            ? {
+                ...item.manualPlacement,
+                z: horizontal ? displaced : item.manualPlacement.z,
+                x: !horizontal ? displaced : item.manualPlacement.x
+              }
+            : item.manualPlacement
+        };
       });
 
       // Reflow Level 2 items independently so they keep their own order and
