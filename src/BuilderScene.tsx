@@ -447,6 +447,26 @@ export default function BuilderScene({
           zoomSpeed={1.2}
           minDistance={1.2}
           maxDistance={80}
+          minAzimuthAngle={
+            selectedStepId === "equipment-side" ? -0.35
+            : selectedStepId === "serving-side" ? -0.35
+            : -Infinity
+          }
+          maxAzimuthAngle={
+            selectedStepId === "equipment-side" ? 0.35
+            : selectedStepId === "serving-side" ? 0.35
+            : Infinity
+          }
+          minPolarAngle={
+            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
+              ? Math.PI / 2.8
+              : 0
+          }
+          maxPolarAngle={
+            selectedStepId === "equipment-side" || selectedStepId === "serving-side"
+              ? Math.PI / 2
+              : Math.PI
+          }
         />
       </Canvas>
     </div>
