@@ -56,6 +56,8 @@ type BuilderSceneProps = {
   onLoadingChange: (loading: boolean) => void;
   showMeasurements?: boolean;
   selectedCustomizationId?: string;
+  initialWindowPosition?: { x: number; y: number; z: number } | null;
+  onWindowPositionChange?: (pos: { x: number; y: number; z: number }) => void;
 };
 
 
@@ -80,7 +82,9 @@ export default function BuilderScene({
   onUpdatePlacement,
   onLoadingChange,
   showMeasurements,
-  selectedCustomizationId
+  selectedCustomizationId,
+  initialWindowPosition,
+  onWindowPositionChange
 }: BuilderSceneProps) {
   const sceneWrapperRef = useRef<HTMLDivElement | null>(null);
   const cameraRef = useRef<PerspectiveCamera | OrthographicCamera | null>(null);
@@ -357,6 +361,8 @@ export default function BuilderScene({
               selectedCustomizationId={selectedCustomizationId}
               placements={placements}
               measuredFootprints={measuredFootprints}
+              initialWindowPosition={initialWindowPosition}
+              onWindowPositionChange={onWindowPositionChange}
             />
           </Suspense>
           <Suspense fallback={null}>

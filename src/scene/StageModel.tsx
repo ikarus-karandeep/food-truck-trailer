@@ -8,7 +8,8 @@ import {
     Quaternion,
     Object3D,
     BoxGeometry,
-    Matrix4
+    Matrix4,
+    Group
 } from "three";
 
 import { Evaluator, SUBTRACTION, Brush } from "three-bvh-csg";
@@ -119,7 +120,9 @@ function VisibleStageModel({
   showMeasurements,
   selectedCustomizationId,
   placements = [],
-  measuredFootprints = {}
+  measuredFootprints = {},
+  initialWindowPosition,
+  onWindowPositionChange
 }: {
   src: string;
   rotationY?: number;
@@ -128,6 +131,8 @@ function VisibleStageModel({
   selectedCustomizationId?: string;
   placements?: PlacementView[];
   measuredFootprints?: Record<string, MeasuredFootprint>;
+  initialWindowPosition?: { x: number; y: number; z: number } | null;
+  onWindowPositionChange?: (pos: { x: number; y: number; z: number }) => void;
 }) {
   const gltf = useGLTF(src);
   const [nativeWindowPos, setNativeWindowPos] = useState<Vector3 | null>(null);
@@ -205,8 +210,13 @@ function VisibleStageModel({
           originalWindowBoxPos.current = center;
         }
 
-        // Initialize window position so CSG cut runs immediately on load (no drag required)
-        setNativeWindowPos((child as Object3D).position.clone());
+        // If a saved position was provided, restore it; otherwise use the model's native world position
+        // We store world positions (scene-root space) so they work correctly regardless of GLB hierarchy depth
+        if (initialWindowPosition) {
+          setNativeWindowPos(new Vector3(initialWindowPosition.x, initialWindowPosition.y, initialWindowPosition.z));
+        } else {
+          setNativeWindowPos(p.clone()); // p = getWorldPosition result, already computed above
+        }
         setWindowMoved(true);
       }
     });
@@ -227,20 +237,26 @@ function VisibleStageModel({
         const isWrapMesh = name.includes("wrap") && name.includes("image");
         const isSideMesh = name.includes("side") && (name.includes("right") || name.includes("left") || name.includes("front") || name.includes("back"));
 
-        const isTargetMesh = mesh.name === "Plane_006";
+        const isTargetMesh = isWrapMesh || mesh.name === "Plane_006";
 
         if (isTargetMesh) {
           let sideTexture = null;
-          if (name.includes("right")) sideTexture = textures.A;
-          else if (name.includes("left")) sideTexture = textures.B;
-          else if (name.includes("front")) sideTexture = textures.C;
-          else if (name.includes("back")) sideTexture = textures.D;
+          if (name.includes("right") || name.includes("_a")) sideTexture = textures.A;
+          else if (name.includes("left") || name.includes("_b")) sideTexture = textures.B;
+          else if (name.includes("front") || name.includes("_c")) sideTexture = textures.C;
+          else if (name.includes("back") || name.includes("_d")) sideTexture = textures.D;
 
           if (sideTexture && selectedCustomizationId && selectedCustomizationId !== "no-wrap") {
             const applyToMaterial = (mat: any) => {
                 const newMat = mat.clone();
-                newMat.map = sideTexture;
-                newMat.map.flipY = false;
+                const tex = sideTexture.clone();
+                tex.flipY = false;
+                tex.rotation = 0;
+                tex.center.set(0.5, 0.5);
+                tex.repeat.set(1, 1);
+                tex.offset.set(0, 0);
+                tex.needsUpdate = true;
+                newMat.map = tex;
                 newMat.needsUpdate = true;
                 if (newMat.color) newMat.color.set("white");
                 newMat.polygonOffset = true;
@@ -334,21 +350,23 @@ function VisibleStageModel({
       if (child.name.toLowerCase() === "window") windowGroupNode = child as Object3D;
     });
     if (windowGroupNode) {
-      (windowGroupNode as Object3D).position.copy(nativeWindowPos);
-      (windowGroupNode as Object3D).updateMatrixWorld(true);
+      // nativeWindowPos is in world/scene-root space; convert to the node's parent local space
+      const node = windowGroupNode as Object3D;
+      if (node.parent) {
+        node.parent.updateMatrixWorld(true);
+        const localPos = nativeWindowPos.clone().applyMatrix4(
+          new (node.parent.matrixWorld.constructor as any)().copy(node.parent.matrixWorld).invert()
+        );
+        node.position.copy(localPos);
+      } else {
+        node.position.copy(nativeWindowPos);
+      }
+      node.updateMatrixWorld(true);
     }
     csgScene.updateMatrixWorld(true);
 
-    // Compute dragDelta in WORLD space. The Window group was dragged and nativeWindowPos is its new LOCAL position.
-    // By updating its local position and grabbing its new world position, we can find the true world delta.
-    const newWorldPos = new Vector3();
-    if (windowGroupNode) {
-      (windowGroupNode as Object3D).getWorldPosition(newWorldPos);
-    } else {
-      newWorldPos.copy(originalWindowGroupPos.current);
-    }
-    
-    const dragDelta = new Vector3().subVectors(newWorldPos, originalWindowGroupPos.current);
+    // dragDelta is simply the difference in world positions (nativeWindowPos is already world space)
+    const dragDelta = new Vector3().subVectors(nativeWindowPos, originalWindowGroupPos.current);
     let cutterWorldPos = new Vector3().addVectors(baseBoxPos, dragDelta);
 
     // Get WindowBox geometry for cutter sizing, fallback to Window group bounds
@@ -462,6 +480,67 @@ const cutterGeom = new BoxGeometry(boxW, boxH, boxL);
     });
     return found;
   }, [scene]);
+  const centerOffset = useMemo(() => {
+    if (!windowBoxNode) return new Vector3();
+    scene.updateMatrixWorld(true);
+
+    // bbox center in world space (scene-root space, same as nativeWindowPos)
+    const box = new Box3().setFromObject(windowBoxNode);
+    const bboxCenterWorld = new Vector3();
+    box.getCenter(bboxCenterWorld);
+
+    // pivot in world space
+    const pivotWorld = new Vector3();
+    windowBoxNode.getWorldPosition(pivotWorld);
+
+    // Both are in world/scene-root space — delta is the visual centering offset
+    const off = new Vector3().subVectors(bboxCenterWorld, pivotWorld);
+    console.log("[DEBUG centerOffset] pivotWorld:", pivotWorld.toArray(), "bboxCenterWorld:", bboxCenterWorld.toArray(), "offset:", off.toArray());
+    return off;
+  }, [windowBoxNode, scene]);
+
+  const proxyPosition = useMemo(() => {
+    if (!nativeWindowPos) return null;
+    return nativeWindowPos.clone().add(centerOffset);
+  }, [nativeWindowPos, centerOffset]);
+
+  const [proxyGroupNode, setProxyGroupNode] = useState<Object3D | null>(null);
+  const controlsRef = useRef<any>(null);
+
+  useEffect(() => {
+    let timeoutIds: ReturnType<typeof setTimeout>[] = [];
+    let raf: number;
+    
+    const applyDepthTest = () => {
+      if (controlsRef.current) {
+        controlsRef.current.traverse((child: any) => {
+          if ((child.isMesh || child.isLine) && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            let modified = false;
+            mats.forEach((m: any) => {
+              if (m.depthTest !== false) {
+                m.depthTest = false;
+                m.depthWrite = false;
+                modified = true;
+              }
+            });
+            if (modified) child.renderOrder = 99999;
+          }
+        });
+      }
+    };
+
+    if (windowBoxNode) {
+      raf = requestAnimationFrame(applyDepthTest);
+      timeoutIds.push(setTimeout(applyDepthTest, 100));
+      timeoutIds.push(setTimeout(applyDepthTest, 500));
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      timeoutIds.forEach(clearTimeout);
+    };
+  }, [windowBoxNode]);
 
   // Compute realistic dimensions
   const trailerLengthFeet = src.includes("16") ? 16 : src.includes("30") ? 30 : 16;
@@ -481,54 +560,62 @@ const cutterGeom = new BoxGeometry(boxW, boxH, boxL);
   const labelOff = 0.1;
 
   return (
-    <group position={[0, 0.08, 0]} rotation={[0, rotationY, 0]}>
-      <group
-        scale={metrics.scale}
-        position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
-      >
-        <primitive object={scene} />
-        {windowBoxNode && (
-          <TransformControls
-            object={windowBoxNode}
-            mode="translate"
-            showY={false}
-            showZ={false}
-            showX={true}
-            onMouseUp={(e: any) => {
-  if (e.target?.object) {
-    setNativeWindowPos(e.target.object.position.clone());
-    setWindowMoved(true);
-  }
-}}
-          />
-        )}
-        {showMeasurements && (
-          <group position={[metrics.center.x, metrics.center.y, metrics.center.z]}>
-            {/* Length (X-axis) - Front Bottom Edge */}
-            <DimensionAnnotation 
-               start={new Vector3(-hw, -hh - gap, hl + gap)} 
-               end={new Vector3(hw, -hh - gap, hl + gap)} 
-               label={formatDimensionFeet(realSizeFeet.x)} 
-               labelOffset={new Vector3(0, -labelOff, 0)}
-            />
-            {/* Height (Y-axis) - Left Front Edge */}
-            <DimensionAnnotation 
-               start={new Vector3(-hw - gap, -hh, hl + gap)} 
-               end={new Vector3(-hw - gap, hh, hl + gap)} 
-               label={formatDimensionFeet(realSizeFeet.y)} 
-               labelOffset={new Vector3(-labelOff, 0, 0)}
-            />
-            {/* Depth (Z-axis) - Left Bottom Edge */}
-            <DimensionAnnotation 
-               start={new Vector3(-hw - gap, -hh - gap, -hl)} 
-               end={new Vector3(-hw - gap, -hh - gap, hl)} 
-               label={formatDimensionFeet(realSizeFeet.z)} 
-               labelOffset={new Vector3(-labelOff, -labelOff, 0)}
-            />
-          </group>
-        )}
+    <>
+      <group position={[0, 0.08, 0]} rotation={[0, rotationY, 0]}>
+        <group
+          scale={metrics.scale}
+          position={[metrics.offset.x, metrics.offset.y, metrics.offset.z]}
+        >
+          <primitive object={scene} />
+          {proxyPosition && <group ref={setProxyGroupNode} position={proxyPosition} />}
+          {showMeasurements && (
+            <group position={[metrics.center.x, metrics.center.y, metrics.center.z]}>
+              {/* Length (X-axis) - Front Bottom Edge */}
+              <DimensionAnnotation 
+                 start={new Vector3(-hw, -hh - gap, hl + gap)} 
+                 end={new Vector3(hw, -hh - gap, hl + gap)} 
+                 label={formatDimensionFeet(realSizeFeet.x)} 
+                 labelOffset={new Vector3(0, -labelOff, 0)}
+              />
+              {/* Height (Y-axis) - Left Front Edge */}
+              <DimensionAnnotation 
+                 start={new Vector3(-hw - gap, -hh, hl + gap)} 
+                 end={new Vector3(-hw - gap, hh, hl + gap)} 
+                 label={formatDimensionFeet(realSizeFeet.y)} 
+                 labelOffset={new Vector3(-labelOff, 0, 0)}
+              />
+              {/* Depth (Z-axis) - Left Bottom Edge */}
+              <DimensionAnnotation 
+                 start={new Vector3(-hw - gap, -hh - gap, -hl)} 
+                 end={new Vector3(-hw - gap, -hh - gap, hl)} 
+                 label={formatDimensionFeet(realSizeFeet.z)} 
+                 labelOffset={new Vector3(-labelOff, -labelOff, 0)}
+              />
+            </group>
+          )}
+        </group>
       </group>
-    </group>
+      {proxyGroupNode && proxyPosition && (
+        <TransformControls
+          ref={controlsRef}
+          object={proxyGroupNode}
+          mode="translate"
+          space="local"
+          size={0.5}
+          showY={false}
+          showZ={false}
+          showX={true}
+          onMouseUp={(e: any) => {
+            if (e.target?.object) {
+              const newPos = e.target.object.position.clone().sub(centerOffset);
+              setNativeWindowPos(newPos);
+              setWindowMoved(true);
+              onWindowPositionChange?.({ x: newPos.x, y: newPos.y, z: newPos.z });
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -539,7 +626,9 @@ export default function StageModel({
   showMeasurements,
   selectedCustomizationId,
   placements,
-  measuredFootprints
+  measuredFootprints,
+  initialWindowPosition,
+  onWindowPositionChange
 }: {
   src: string | null;
   rotationY?: number;
@@ -548,18 +637,22 @@ export default function StageModel({
   selectedCustomizationId?: string;
   placements?: PlacementView[];
   measuredFootprints?: Record<string, MeasuredFootprint>;
+  initialWindowPosition?: { x: number; y: number; z: number } | null;
+  onWindowPositionChange?: (pos: { x: number; y: number; z: number }) => void;
 }) {
   if (!src) {
     return null;
   }
 
-  return <VisibleStageModel 
-            src={src} 
-            rotationY={rotationY} 
-            onLoad={onLoad} 
-            showMeasurements={showMeasurements} 
-            selectedCustomizationId={selectedCustomizationId} 
+  return <VisibleStageModel
+            src={src}
+            rotationY={rotationY}
+            onLoad={onLoad}
+            showMeasurements={showMeasurements}
+            selectedCustomizationId={selectedCustomizationId}
             placements={placements}
             measuredFootprints={measuredFootprints}
+            initialWindowPosition={initialWindowPosition}
+            onWindowPositionChange={onWindowPositionChange}
          />;
 }

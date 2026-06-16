@@ -63,6 +63,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [selectedCustomizationId, setSelectedCustomizationId] = useState<string>("no-wrap");
+  const [savedWindowPosition, setSavedWindowPosition] = useState<{ x: number; y: number; z: number } | null>(null);
   const LEVEL2_COMPACT_GAP = 0.1;
 
   useEffect(() => {
@@ -79,9 +80,12 @@ function App() {
         if (decoded.placed && Array.isArray(decoded.placed)) {
           setPlaced(decoded.placed);
         }
-          if (decoded.selectedCustomizationId) {
-            setSelectedCustomizationId(decoded.selectedCustomizationId);
-          }
+        if (decoded.selectedCustomizationId) {
+          setSelectedCustomizationId(decoded.selectedCustomizationId);
+        }
+        if (decoded.windowPosition) {
+          setSavedWindowPosition(decoded.windowPosition);
+        }
       }
     } catch (e) {
       console.error("Failed to parse build configuration from URL", e);
@@ -92,7 +96,8 @@ function App() {
   const stateToSave = {
     selectedTrailerSizeId,
     placed,
-    selectedCustomizationId
+    selectedCustomizationId,
+    windowPosition: savedWindowPosition
   };
   try {
     const encoded = btoa(JSON.stringify(stateToSave));
@@ -1365,6 +1370,8 @@ function App() {
               onLoadingChange={setIsLoading}
               showMeasurements={showMeasurements}
               selectedCustomizationId={selectedCustomizationId}
+              initialWindowPosition={savedWindowPosition}
+              onWindowPositionChange={setSavedWindowPosition}
             />
         </div>
 
@@ -1688,6 +1695,7 @@ function App() {
                           // Commit the chosen size — this controls selection and the scene model
                           setSelectedTrailerSizeId(sizeOption.trailerSizeId);
                           setDisplayedTrailerSizeId(sizeOption.trailerSizeId!);
+                          setSavedWindowPosition(null);
                         }
                       }}
                     >
