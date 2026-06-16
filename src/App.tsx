@@ -930,8 +930,7 @@ function App() {
         currentPlacement.item.id,
         endPoint,
         placements.filter(
-          ({ item, definition }) =>
-            item.id !== id && definition.level === currentPlacement.definition.level
+          ({ item }) => item.id !== id && item.zoneId === currentPlacement.item.zoneId
         ),
         measuredFootprints
       );
