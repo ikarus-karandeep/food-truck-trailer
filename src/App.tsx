@@ -781,6 +781,7 @@ function App() {
       );
 
       if (!placement) {
+        setTimeout(() => setShowNoSpaceModal(true), 0);
         return current;
       }
 

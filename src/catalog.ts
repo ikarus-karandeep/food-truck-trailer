@@ -111,6 +111,11 @@ function getEquipmentMatch(glbName: string) {
   return bestMatch;
 }
 
+import dimensionsData from "../dimensions.json";
+
+type DimensionEntry = { width: number, depth: number, height: number };
+const glbDimensions = dimensionsData as Record<string, DimensionEntry>;
+
 export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as ModelCatalogEntry[])
   .filter((entry) => entry.side === "equipment" || entry.side === "serving")
   .flatMap((entry) => {
@@ -126,6 +131,9 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
     const imageUrl = eqMatch ? (eqMatch.builder_image_url && eqMatch.builder_image_url !== "False" ? eqMatch.builder_image_url : eqMatch.image_url) : "";
     const sku = eqMatch ? eqMatch.sku : "";
 
+    const defaultSize = getDefaultEquipmentSize(entry.level);
+    const exactDim = glbDimensions[entry["glb name"]];
+
     return [
       {
         id: slugify(entry["glb name"]),
@@ -133,7 +141,11 @@ export const equipmentCatalog: EquipmentDefinition[] = (modelCatalogData as Mode
         menuType: entry["menu type"],
         side: entry.side,
         level: entry.level,
-        size: getDefaultEquipmentSize(entry.level),
+        size: exactDim ? {
+           width: exactDim.width,
+           length: exactDim.depth,
+           height: exactDim.height
+        } : defaultSize,
         color: getMenuAccent(entry["menu type"]),
         price,
         imageUrl,
