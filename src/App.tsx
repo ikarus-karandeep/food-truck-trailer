@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, type CSSProperties } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import { Vector3 } from "three";
 import { equipmentCatalog, equipmentMenuGroups } from "./catalog";
 import { buildZones, configuratorSteps, trailerSizes } from "./configurator";
@@ -50,6 +50,7 @@ function App() {
   const [dropZoneBoundsMap, setDropZoneBoundsMap] = useState<Record<string, Partial<Zone>>>({});
   const [showNoBaseModal, setShowNoBaseModal] = useState(false);
   const [showNoSpaceModal, setShowNoSpaceModal] = useState(false);
+  const [showSizeTooSmallModal, setShowSizeTooSmallModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   // Pending Level-1 delete that has stacked Level-2 items
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -64,6 +65,9 @@ function App() {
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [selectedCustomizationId, setSelectedCustomizationId] = useState<string>("no-wrap");
   const [savedWindowPosition, setSavedWindowPosition] = useState<{ x: number; y: number; z: number } | null>(null);
+  // Tracks whether a trailer size change just occurred so the next zone-bounds
+  // update triggers a rightward re-pack of all placed items.
+  const trailerSizeChangePending = useRef(false);
   const LEVEL2_COMPACT_GAP = 0.1;
 
   useEffect(() => {
@@ -500,6 +504,47 @@ function App() {
     );
     return compacted;
   }
+
+  // Step 1: mark that a re-pack is needed when the committed trailer size changes.
+  useEffect(() => {
+    trailerSizeChangePending.current = true;
+  }, [selectedTrailerSizeId]);
+
+  // Step 2: once the new zone GLB loads and reports its bounds (dropZoneBoundsMap
+  // updates with real values), push all items to FAR_RIGHT so the compact effect
+  // re-packs them flush to the right wall of the new zone.
+  // We skip empty-bounds updates (null flush when model switches) to avoid
+  // consuming the flag before the real 30ft bounds arrive.
+  useEffect(() => {
+    if (!trailerSizeChangePending.current) return;
+    // Only proceed when at least one zone has real, non-empty bounds
+    const hasRealBounds = Object.values(dropZoneBoundsMap).some(
+      (bounds) => bounds && Object.keys(bounds).length > 0
+    );
+    if (!hasRealBounds) return;
+    trailerSizeChangePending.current = false;
+    setPlaced((current) => {
+      if (current.length === 0) return current;
+      // 9999 is guaranteed to be past any zone's right wall.
+      // compactItems starts from axisMax and works left, so tightCenter < 9999
+      // means the condition that preserves position is false → items pack from right.
+      const FAR_RIGHT = 9999;
+      return current.map((item) => {
+        const zone = zoneMap[item.zoneId as ZoneId];
+        if (!zone || !item.manualPlacement) return item;
+        const horizontal = zone.length >= zone.width;
+        return {
+          ...item,
+          manualPlacement: {
+            ...item.manualPlacement,
+            z: horizontal ? FAR_RIGHT : item.manualPlacement.z,
+            x: !horizontal ? FAR_RIGHT : item.manualPlacement.x
+          }
+        };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropZoneBoundsMap]);
 
   useEffect(() => {
     setPlaced((current) => {
@@ -1077,6 +1122,44 @@ function App() {
 
 
 
+  /**
+   * Returns true if all placed ground-tier items (level 0+1) fit within the
+   * given zone length. Uses measured footprints when available, falling back
+   * to the definition's nominal size.
+   */
+  function placedItemsFitInZoneLength(targetZoneLength: number, zoneId: ZoneId): boolean {
+    const zoneItems = placed.filter((item) => {
+      const def = equipmentMap[item.definitionId];
+      return def && item.zoneId === zoneId && def.level <= 1;
+    });
+    const totalLength = zoneItems.reduce((sum, item) => {
+      const def = equipmentMap[item.definitionId]!;
+      const footprint = measuredFootprints[item.id];
+      const itemLen = footprint?.length ?? def.size.length;
+      return sum + itemLen;
+    }, 0);
+    return totalLength <= targetZoneLength;
+  }
+
+  /**
+   * Known approximate zone lengths per trailer size (in metres).
+   * These are fallback estimates; real values come from dropZoneBoundsMap
+   * once the GLB loads.  16ft ≈ 2.2 m, 30ft ≈ 5.5 m.
+   */
+  const TRAILER_ZONE_LENGTHS: Record<string, number> = {
+    "size-16": 2.2,
+    "size-30": 5.5
+  };
+
+  function getZoneLengthForSize(trailerSizeId: string, zoneId: ZoneId): number {
+    // If the new size matches the currently displayed size we already have real bounds.
+    if (trailerSizeId === displayedTrailerSizeId) {
+      return dropZoneBoundsMap[zoneId]?.length ?? TRAILER_ZONE_LENGTHS[trailerSizeId] ?? 2.2;
+    }
+    // Otherwise fall back to known estimates.
+    return TRAILER_ZONE_LENGTHS[trailerSizeId] ?? 2.2;
+  }
+
   function applyTrailerSize(trailerSize: TrailerSize) {
     // When the user clicks a trailer card, only update the card selection.
     // Do not change the committed size or the displayed model here.
@@ -1478,6 +1561,33 @@ function App() {
         </div>
       )}
 
+      {/* Size-too-small warning modal */}
+      {showSizeTooSmallModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="size-too-small-modal-title"
+          onClick={() => setShowSizeTooSmallModal(false)}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">⚠️</div>
+            <h3 id="size-too-small-modal-title">Too Many Models</h3>
+            <p>
+              The equipment you have placed <strong>does not fit</strong> in a smaller trailer.
+              Please <strong>remove some models</strong> before switching to a smaller size.
+            </p>
+            <button
+              type="button"
+              className="modal-dismiss-btn"
+              onClick={() => setShowSizeTooSmallModal(false)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Level-1 + stacked Level-2 delete confirmation modal */}
       {deleteConfirmState && (
         <div
@@ -1693,9 +1803,20 @@ function App() {
                       disabled={!sizeOption.enabled}
                       onClick={() => {
                         if (sizeOption.trailerSizeId) {
+                          // Before committing a size change, verify placed items still fit.
+                          // We check both equipment-drop and serving-drop zones.
+                          const targetId = sizeOption.trailerSizeId;
+                          const equipLen = getZoneLengthForSize(targetId, "equipment-drop");
+                          const servLen = getZoneLengthForSize(targetId, "serving-drop");
+                          const equipFits = placedItemsFitInZoneLength(equipLen, "equipment-drop");
+                          const servFits = placedItemsFitInZoneLength(servLen, "serving-drop");
+                          if (!equipFits || !servFits) {
+                            setShowSizeTooSmallModal(true);
+                            return;
+                          }
                           // Commit the chosen size — this controls selection and the scene model
-                          setSelectedTrailerSizeId(sizeOption.trailerSizeId);
-                          setDisplayedTrailerSizeId(sizeOption.trailerSizeId!);
+                          setSelectedTrailerSizeId(targetId);
+                          setDisplayedTrailerSizeId(targetId);
                           setSavedWindowPosition(null);
                         }
                       }}

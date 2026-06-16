@@ -469,6 +469,56 @@ const cutterGeom = new BoxGeometry(boxW, boxH, boxL);
     return csgScene;
   }, [rawScene, nativeWindowPos, windowMoved, originalWallGeometries, placements, measuredFootprints]);
 
+  const wallXBounds = useMemo(() => {
+    let minX = metrics.center.x - (metrics.size.x / 2);
+    let maxX = metrics.center.x + (metrics.size.x / 2);
+    
+    let wallBox = new Box3();
+    let hasWall = false;
+
+    rawScene.traverse((c: any) => {
+       if (c.isMesh && (c.name === "Plane_006" || c.name.toLowerCase().startsWith("wrap_image_"))) {
+           const geom = c.geometry.clone().applyMatrix4(c.matrixWorld);
+           if (geom.attributes.position) {
+               const box = new Box3().setFromBufferAttribute(geom.attributes.position as any);
+               wallBox.union(box);
+               hasWall = true;
+           }
+       }
+    });
+
+    if (hasWall && !wallBox.isEmpty()) {
+       minX = wallBox.min.x;
+       maxX = wallBox.max.x;
+    }
+    return { minX, maxX };
+  }, [rawScene, metrics]);
+
+  const windowActualWidth = useMemo(() => {
+    let w = 1.8;
+    let windowGroupNode: Object3D | null = null;
+    rawScene.traverse((c: any) => {
+       if (c.name.toLowerCase() === "window") windowGroupNode = c as Object3D;
+    });
+    if (windowGroupNode) {
+       let wMesh: any = null;
+       rawScene.traverse((c: any) => {
+         if (c.isMesh && c.name.toLowerCase().includes("windowbox")) wMesh = c;
+       });
+       if (wMesh) {
+         const geom = wMesh.geometry.clone().applyMatrix4(wMesh.matrixWorld);
+         if (geom.attributes.position) {
+             const box = new Box3().setFromBufferAttribute(geom.attributes.position as any);
+             w = box.max.x - box.min.x;
+         }
+       } else {
+         const bbox = new Box3().setFromObject(windowGroupNode);
+         w = bbox.max.x - bbox.min.x;
+       }
+    }
+    return w;
+  }, [rawScene]);
+
   // Attach TransformControls to the "Window" parent group so WindowBox + all frame
   // meshes (Window_with_frame_60_open011_*) all drag together with a single gizmo.
   const windowBoxNode = useMemo<Object3D | null>(() => {
@@ -593,19 +643,44 @@ const cutterGeom = new BoxGeometry(boxW, boxH, boxL);
           )}
         </group>
       </group>
-      {proxyGroupNode && proxyPosition && (
+      {src.toLowerCase().includes("serving") && proxyGroupNode && proxyPosition && (
         <TransformControls
           ref={controlsRef}
           object={proxyGroupNode}
           mode="translate"
           space="local"
           size={0.5}
-          showY={false}
-          showZ={false}
+          showY={true}
+          showZ={true}
           showX={true}
+          onChange={() => {
+            if (proxyGroupNode && proxyPosition) {
+              proxyGroupNode.position.y = proxyPosition.y;
+              proxyGroupNode.position.z = proxyPosition.z;
+              
+              const padding = (windowActualWidth / 2) + 0.25;
+              const allowedMinX = wallXBounds.minX + padding;
+              const allowedMaxX = wallXBounds.maxX - padding;
+              
+              if (proxyGroupNode.position.x < allowedMinX) proxyGroupNode.position.x = allowedMinX;
+              if (proxyGroupNode.position.x > allowedMaxX) proxyGroupNode.position.x = allowedMaxX;
+              
+              const newPos = proxyGroupNode.position.clone().sub(centerOffset);
+              setNativeWindowPos(newPos);
+              setWindowMoved(true);
+            }
+          }}
           onMouseUp={(e: any) => {
             if (e.target?.object) {
-              const newPos = e.target.object.position.clone().sub(centerOffset);
+              const padding = (windowActualWidth / 2) + 0.25;
+              const allowedMinX = wallXBounds.minX + padding;
+              const allowedMaxX = wallXBounds.maxX - padding;
+              
+              const objectPos = e.target.object.position.clone();
+              if (objectPos.x < allowedMinX) objectPos.x = allowedMinX;
+              if (objectPos.x > allowedMaxX) objectPos.x = allowedMaxX;
+              
+              const newPos = objectPos.clone().sub(centerOffset);
               setNativeWindowPos(newPos);
               setWindowMoved(true);
               onWindowPositionChange?.({ x: newPos.x, y: newPos.y, z: newPos.z });
