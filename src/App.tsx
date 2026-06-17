@@ -67,7 +67,7 @@ function App() {
   const [savedWindowPosition, setSavedWindowPosition] = useState<{ x: number; y: number; z: number } | null>(null);
   // Tracks whether a trailer size change just occurred so the next zone-bounds
   // update triggers a rightward re-pack of all placed items.
-  const trailerSizeChangePending = useRef(false);
+  const trailerSizeChangePending = useRef<Set<string>>(new Set());
   const LEVEL2_COMPACT_GAP = 0.1;
 
   useEffect(() => {
@@ -560,31 +560,36 @@ function App() {
     return compacted;
   }
 
-  // Step 1: mark that a re-pack is needed when the committed trailer size changes.
+  // Step 1: mark both zones as needing a re-pack when the committed trailer size changes.
   useEffect(() => {
-    trailerSizeChangePending.current = true;
+    trailerSizeChangePending.current.add("equipment-drop");
+    trailerSizeChangePending.current.add("serving-drop");
   }, [selectedTrailerSizeId]);
 
-  // Step 2: once the new zone GLB loads and reports its bounds (dropZoneBoundsMap
-  // updates with real values), push all items to FAR_RIGHT so the compact effect
-  // re-packs them flush to the right wall of the new zone.
-  // We skip empty-bounds updates (null flush when model switches) to avoid
-  // consuming the flag before the real 30ft bounds arrive.
+  // Step 2: whenever dropZoneBoundsMap updates, re-pack any zone that (a) is in the
+  // pending set and (b) now has real bounds. Each zone is cleared independently so
+  // switching from equipment-side to serving-side still triggers the serving-side
+  // re-pack even though the equipment-side re-pack already ran.
   useEffect(() => {
-    if (!trailerSizeChangePending.current) return;
-    // Only proceed when at least one zone has real, non-empty bounds
-    const hasRealBounds = Object.values(dropZoneBoundsMap).some(
-      (bounds) => bounds && Object.keys(bounds).length > 0
-    );
-    if (!hasRealBounds) return;
-    trailerSizeChangePending.current = false;
+    if (trailerSizeChangePending.current.size === 0) return;
+
+    const zonesToRepack: string[] = [];
+    trailerSizeChangePending.current.forEach((zoneId) => {
+      const bounds = dropZoneBoundsMap[zoneId];
+      if (bounds && Object.keys(bounds).length > 0) {
+        zonesToRepack.push(zoneId);
+      }
+    });
+
+    if (zonesToRepack.length === 0) return;
+
+    zonesToRepack.forEach((zoneId) => trailerSizeChangePending.current.delete(zoneId));
+
     setPlaced((current) => {
       if (current.length === 0) return current;
-      // 9999 is guaranteed to be past any zone's right wall.
-      // compactItems starts from axisMax and works left, so tightCenter < 9999
-      // means the condition that preserves position is false → items pack from right.
       const FAR_RIGHT = 9999;
       return current.map((item) => {
+        if (!zonesToRepack.includes(item.zoneId)) return item;
         const zone = zoneMap[item.zoneId as ZoneId];
         if (!zone || !item.manualPlacement) return item;
         const horizontal = zone.length >= zone.width;
@@ -614,8 +619,13 @@ function App() {
         }
       });
 
-      // Compact ground tier (level 0 + 1 together) per zone
+      // Compact ground tier (level 0 + 1 together) per zone.
+      // Skip zones whose bounds are empty — the zone model is mid-transition
+      // (e.g. navigating away clears bounds before the new model reports them)
+      // and compacting against fallback defaults would misplace items.
       groundZones.forEach((zoneId) => {
+        const zoneBounds = dropZoneBoundsMap[zoneId];
+        if (!zoneBounds || Object.keys(zoneBounds).length === 0) return;
         updated = compactItems(updated, zoneId as ZoneId, [0, 1], []);
       });
 
@@ -630,6 +640,8 @@ function App() {
       });
 
       level2Zones.forEach((zoneId) => {
+        const zoneBounds = dropZoneBoundsMap[zoneId];
+        if (!zoneBounds || Object.keys(zoneBounds).length === 0) return;
         // Level 2 items treat Level 0 models as blockers to avoid landing on sinks.
         updated = compactItems(updated, zoneId as ZoneId, [2], [0]);
       });
@@ -1027,12 +1039,17 @@ function App() {
       const point = horizontal
         ? new Vector3(currentPlacement.zone.x, currentPlacement.zone.lineY, axisValue)
         : new Vector3(axisValue, currentPlacement.zone.lineY, currentPlacement.zone.z);
+      // Level 2 items sit on top of Level 1 items — Level 1 is support, not an obstacle.
+      // Only Level 2 peers and Level 0 items (which can't support stacking) block Level 2.
+      const relevantPlacements = targetDefinition.level === 2
+        ? activePlacements.filter(({ definition }) => definition.level === 2 || definition.level === 0)
+        : activePlacements;
       return resolveNonIntersectingPlacement(
         currentPlacement.zone,
         targetDefinition,
         targetItemId,
         point,
-        activePlacements,
+        relevantPlacements,
         measuredFootprints
       );
     };
@@ -1057,8 +1074,8 @@ function App() {
           ? currentPlacement.placement.y
           : currentPlacement.zone.lineY;
 
-      setPlaced((current) =>
-        current.map((item) =>
+      setPlaced((current) => {
+        let result = current.map((item) =>
           item.id === currentPlacement.item.id
             ? {
                 ...item,
@@ -1069,8 +1086,16 @@ function App() {
                 }
               }
             : item
-        )
-      );
+        );
+        const level = currentPlacement.definition.level;
+        if (level <= 1) {
+          result = compactItems(result, currentPlacement.item.zoneId, [0, 1], []);
+          result = compactItems(result, currentPlacement.item.zoneId, [2], [0]);
+        } else if (level === 2) {
+          result = compactItems(result, currentPlacement.item.zoneId, [2], [0]);
+        }
+        return result;
+      });
       setSelectedPlacedId(id);
       setEditingPlacedId(null);
       return;
@@ -1319,7 +1344,7 @@ function App() {
     setEditingPlacedId(null);
   }
 
-  function renderEquipmentCatalogPanel(groups: typeof equipmentSideMenus, badgeLabel: string) {
+  function renderEquipmentCatalogPanel(groups: typeof equipmentSideMenus, badgeLabel: string, zoneId: ZoneId) {
     return (
       <section className="catalog-panel-list">
         {groups.map((group, index) => (
@@ -1330,7 +1355,7 @@ function App() {
             </div>
             <div className="catalog-product-grid">
               {group.items.slice(0, 6).map((equipment) => {
-                const placedCount = placed.filter(p => p.definitionId === equipment.id).length;
+                const placedCount = placed.filter(p => p.definitionId === equipment.id && p.zoneId === zoneId).length;
                 return (
                 <div
                   key={equipment.id}
@@ -1998,11 +2023,11 @@ function App() {
           ) : null}
 
           {selectedStepId === "equipment-side" ? (
-            renderEquipmentCatalogPanel(equipmentSideMenus, "Store")
+            renderEquipmentCatalogPanel(equipmentSideMenus, "Store", "equipment-drop")
           ) : null}
 
           {selectedStepId === "serving-side" ? (
-            renderEquipmentCatalogPanel(servingSideMenus, "Serve")
+            renderEquipmentCatalogPanel(servingSideMenus, "Serve", "serving-drop")
           ) : null}
 
           {selectedStepId === "addons-utility" ? (
